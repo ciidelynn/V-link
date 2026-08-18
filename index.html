@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Idol Ecosystem - Login</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-900 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Smartphone Frame Container -->
+    <div class="w-full max-w-sm bg-slate-900/80 backdrop-blur-xl border border-purple-500/30 rounded-3xl shadow-2xl overflow-hidden p-6 text-white">
+        
+        <!-- App Header / Logo -->
+        <div class="text-center my-8">
+            <div class="inline-flex p-3 bg-gradient-to-tr from-pink-500 to-purple-600 rounded-2xl shadow-lg mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0115.171 17m3.839-1.132c.645-2.266.99-4.659.99-7.138A8 8 0 000 8c0 .79.11 1.554.315 2.281" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold tracking-wider bg-gradient-to-r from-pink-400 to-purple-300 bg-clip-text text-transparent">VIRTUAL IDOL</h1>
+            <p class="text-xs text-slate-400 mt-1">Ecosystem & Management Portal</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">อีเมลผู้ใช้งาน</label>
+                <input type="email" id="email" required 
+                    class="w-full px-4 py-3 bg-slate-800/60 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-purple-500 text-white transition">
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">รหัสผ่าน</label>
+                <input type="password" id="password" required 
+                    class="w-full px-4 py-3 bg-slate-800/60 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-purple-500 text-white transition">
+            </div>
+
+            <!-- Error Message Box -->
+            <div id="errorMsg" class="hidden text-xs text-rose-400 bg-rose-950/40 border border-rose-800/50 p-2.5 rounded-lg text-center">
+                อีเมลหรือรหัสผ่านไม่ถูกต้อง
+            </div>
+
+            <button type="submit" 
+                class="w-full mt-2 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-medium rounded-xl shadow-lg shadow-purple-600/30 transition duration-200 text-sm">
+                เข้าสู่ระบบ
+            </button>
+        </form>
+    </div>
+
+    <!-- Script Handle Login -->
+    <script>
+        const ADMIN_EMAIL = "ciiderydem@gmail.com";
+        const ADMIN_PASS = "adminciily";
+
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('email').value.trim();
+            const passwordInput = document.getElementById('password').value.trim();
+            const errorMsg = document.getElementById('errorMsg');
+
+            // ตรวจสอบเงื่อนไขแอดมินตามที่กำหนด
+            if (emailInput === ADMIN_EMAIL && passwordInput === ADMIN_PASS) {
+                localStorage.setItem('userRole', 'admin');
+                localStorage.setItem('userEmail', emailInput);
+                
+                // พาไปที่ home.html ทั้งหมดก่อน (แอดมินจะมีปุ่ม Agency โผล่ขึ้นมาในหน้า home เอง)
+                window.location.href = 'home.html';
+            } else {
+                if(emailInput !== "" && passwordInput !== "") {
+                    localStorage.setItem('userRole', 'user');
+                    localStorage.setItem('userEmail', emailInput);
+                    
+                    window.location.href = 'home.html';
+                } else {
+                    errorMsg.classList.remove('hidden');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
