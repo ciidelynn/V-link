@@ -56,7 +56,7 @@
             <h3 class="text-sm font-bold text-pink-400">แก้ไขโปรไฟล์</h3>
             <div class="flex flex-col items-center space-y-2">
                 <input type="file" id="avatarInput" accept="image/*" class="hidden" onchange="previewAvatar(event)">
-                <div onclick="document.getElementById('avatarInput').click()" class="w-20 h-20 rounded-full overflow-hidden bg-slate-800 border-2 border-pink-500 flex items-center justify-center cursor-pointer relative group">
+                <div onclick="document.getElementById('avatarInput').click()" class="w-20 h-20 rounded-full overflow-hidden bg-slate-800 border-2 border-pink-500 flex items-center justify-center cursor-pointer relative">
                     <img id="avatarPreview" src="" class="w-full h-full object-cover hidden">
                     <span id="avatarPlaceholder" class="text-xs text-slate-400 text-center px-1">เปลี่ยนรูป</span>
                 </div>
@@ -82,24 +82,51 @@
         </div>
     </div>
 
+    <!-- Detail / Comment Modal -->
+    <div id="detailModal" class="fixed inset-0 bg-black/90 hidden flex justify-center items-center p-4 z-50">
+        <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-3xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div class="flex justify-between items-center px-4 py-3 border-b border-slate-800">
+                <span class="text-xs font-bold text-pink-400">รายละเอียดโพสต์</span>
+                <button onclick="closeDetailModal()" class="text-slate-400 text-xs">✕ ปิด</button>
+            </div>
+            <div id="detailContent" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div id="chatModal" class="fixed inset-0 bg-slate-950 hidden flex flex-col z-50">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900">
+            <div class="flex items-center gap-3">
+                <button onclick="closeChat()" class="text-slate-400 text-xs">← กลับ</button>
+                <span id="chatTargetName" class="text-xs font-bold text-pink-400">แชท</span>
+            </div>
+        </div>
+        <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+        <div class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <input type="text" id="chatInput" placeholder="พิมพ์ข้อความ..." class="flex-1 px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs">
+            <button onclick="sendMessage()" class="bg-pink-600 px-4 py-2 rounded-xl text-xs font-bold">ส่ง</button>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, setDoc, getDoc, arrayUnion, arrayRemove, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, setDoc, getDoc, onSnapshot, arrayUnion, arrayRemove, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyCskpROK3OC55EXjDP-ywMiuaOen-fwr2Y", projectId: "v-link-5d0c8" };
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const email = localStorage.getItem('userEmail') || 'user@example.com';
         
-        // Cloudinary Config
         const CLOUD_NAME = 'bnz9fyns';
         const UPLOAD_PRESET = 'V-link';
 
         let currentTab = 'feed';
         let selectedFile = null;
         let selectedAvatarFile = null;
+        let activeChatUser = null;
+        let unsubscribeFeed = null;
+        let unsubscribeChat = null;
 
-        // โหลดข้อมูลโปรไฟล์เริ่มต้นหรือจาก LocalStorage
         let userProfile = {
             displayName: localStorage.getItem('slink_name') || email.split('@')[0],
             username: localStorage.getItem('slink_username') || email.split('@')[0],
@@ -182,7 +209,6 @@
                 localStorage.setItem('slink_bio', userProfile.bio);
                 localStorage.setItem('slink_avatar', userProfile.avatarUrl);
 
-                // บันทึกโปรไฟล์ลง Firestore เพื่อให้คนอื่นค้นหาเจอ
                 await setDoc(doc(db, "users", email), {
                     email: email,
                     displayName: userProfile.displayName,
@@ -193,9 +219,7 @@
 
                 closeEditProfileModal();
                 loadProfile();
-            } catch(e) {
-                alert("บันทึกโปรไฟล์ไม่สำเร็จ: " + e.message);
-            }
+            } catch(e) { alert("บันทึกโปรไฟล์ไม่สำเร็จ: " + e.message); }
         }
 
         window.createPost = async () => {
@@ -218,7 +242,7 @@
                     username: userProfile.username,
                     email: email, 
                     imageUrl: result.secure_url,
-                    caption: document.getElementById('postCaption').value,
+                    caption: document.getElementById('postCaption').value || "No caption",
                     likes: [], 
                     createdAt: serverTimestamp()
                 });
@@ -234,10 +258,14 @@
 
         window.switchTab = (tab) => {
             currentTab = tab;
+            if(unsubscribeFeed) { unsubscribeFeed(); unsubscribeFeed = null; }
+            if(unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
+
             ['Feed', 'Search', 'Messages', 'Profile'].forEach(t => {
                 const el = document.getElementById('nav' + t);
                 if(el) el.className = (t.toLowerCase() === tab) ? "text-pink-500 flex flex-col items-center text-[10px] font-bold" : "text-slate-500 flex flex-col items-center text-[10px]";
             });
+
             if(tab === 'feed') loadFeed();
             else if(tab === 'search') loadSearch();
             else if(tab === 'messages') loadMessages();
@@ -248,16 +276,24 @@
             if(confirm("คุณต้องการลบโพสต์นี้ใช่หรือไม่?")) {
                 try {
                     await deleteDoc(doc(db, "posts", postId));
+                    closeDetailModal();
                     if(currentTab === 'profile') loadProfile();
-                    else loadFeed();
                 } catch(e) { alert("ไม่สามารถลบโพสต์ได้"); }
             }
         }
 
         window.toggleLike = async (postId) => {
             try {
-                await updateDoc(doc(db, "posts", postId), { likes: arrayUnion(email) });
-                loadFeed();
+                const postRef = doc(db, "posts", postId);
+                const postSnap = await getDoc(postRef);
+                if(postSnap.exists()) {
+                    const likes = postSnap.data().likes || [];
+                    if(likes.includes(email)) {
+                        await updateDoc(postRef, { likes: arrayRemove(email) });
+                    } else {
+                        await updateDoc(postRef, { likes: arrayUnion(email) });
+                    }
+                }
             } catch(e) { console.error(e); }
         }
 
@@ -266,17 +302,38 @@
             else { navigator.clipboard.writeText(url); alert("คัดลอกลิงก์แล้ว!"); }
         }
 
-        // ระบบค้นหาและติดตาม
+        // ระบบติดตามเพื่อน
+        window.toggleFollow = async (targetEmail) => {
+            try {
+                const myRef = doc(db, "users", email);
+                const targetRef = doc(db, "users", targetEmail);
+                const mySnap = await getDoc(myRef);
+                const following = mySnap.exists() && (mySnap.data().following || []).includes(targetEmail);
+
+                if(following) {
+                    await updateDoc(myRef, { following: arrayRemove(targetEmail) });
+                    await updateDoc(targetRef, { followers: arrayRemove(email) });
+                } else {
+                    await updateDoc(myRef, { following: arrayUnion(targetEmail) });
+                    await updateDoc(targetRef, { followers: arrayUnion(email) });
+                }
+                searchUsers();
+            } catch(e) { console.error(e); }
+        }
+
+        // ระบบค้นหา
         window.searchUsers = async () => {
             const keyword = document.getElementById('searchInput').value.toLowerCase();
-            const resultsContainer =-document.getElementById('searchResults');
-            // ทำระบบค้นหาจาก collection users
             try {
                 const snap = await getDocs(collection(db, "users"));
+                const mySnap = await getDoc(doc(db, "users", email));
+                const followingList = mySnap.exists() ? (mySnap.data().following || []) : [];
+
                 let html = '';
                 snap.forEach(d => {
                     const u = d.data();
                     if(u.email !== email && (u.username.toLowerCase().includes(keyword) || u.displayName.toLowerCase().includes(keyword))) {
+                        const isFollowing = followingList.includes(u.email);
                         html += `
                         <div class="flex justify-between items-center bg-slate-900 border border-slate-800 p-3 rounded-2xl">
                             <div class="flex items-center gap-3">
@@ -288,7 +345,7 @@
                                     <p class="text-[10px] text-slate-400">@${u.username}</p>
                                 </div>
                             </div>
-                            <button onclick="toggleFollow('${u.email}')" class="bg-pink-600 px-3 py-1.5 rounded-xl text-[10px] font-bold">ติดตาม</button>
+                            <button onclick="toggleFollow('${u.email}')" class="${isFollowing ? 'bg-slate-800 text-slate-300' : 'bg-pink-600 text-white'} px-3 py-1.5 rounded-xl text-[10px] font-bold">${isFollowing ? 'กำลังติดตาม' : 'ติดตาม'}</button>
                         </div>`;
                     }
                 });
@@ -296,74 +353,220 @@
             } catch(e) { console.error(e); }
         }
 
-        async function loadFeed() {
-            const container = document.getElementById('feedContainer');
-            container.innerHTML = `<p class="text-center text-slate-500 text-xs py-10">กำลังโหลดข้อมูล...</p>`;
+        // เปิดดูโพสต์และคอมเมนต์แบบเรียลไทม์
+        window.openPostDetail = async (postId) => {
+            document.getElementById('detailModal').classList.remove('hidden');
+            const container = document.getElementById('detailContent');
+            container.innerHTML = `<p class="text-center text-xs text-slate-500 py-5">กำลังโหลด...</p>`;
+
+            const postRef = doc(db, "posts", postId);
+            onSnapshot(postRef, async (docSnap) => {
+                if(!docSnap.exists()) return;
+                const p = docSnap.data();
+                const likesCount = p.likes ? p.likes.length : 0;
+                const isOwner = p.email === email;
+
+                // โหลดคอมเมนต์
+                const commentsSnap = await getDocs(query(collection(db, "posts", postId, "comments"), orderBy("createdAt", "asc")));
+                let commentsHtml = '';
+                commentsSnap.forEach(c => {
+                    const com = c.data();
+                    commentsHtml += `<div class="bg-slate-950 p-2 rounded-xl text-[11px]"><span class="font-bold text-pink-400">${com.author}:</span> ${com.text}</div>`;
+                });
+
+                container.innerHTML = `
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <p class="text-xs font-bold">${p.author} <span class="text-[10px] text-slate-500">(@${p.username || 'user'})</span></p>
+                        ${isOwner ? `<button onclick="deletePost('${postId}')" class="text-red-500 text-xs">🗑️ ลบโพสต์</button>` : ''}
+                    </div>
+                    <div class="w-full bg-black flex items-center justify-center rounded-2xl overflow-hidden">
+                        <img src="${p.imageUrl}" class="w-full h-auto max-h-[350px] object-contain">
+                    </div>
+                    <p class="text-xs text-slate-300">${p.caption}</p>
+                    <div class="text-xs text-slate-400 flex gap-4 pt-1 border-t border-slate-800">
+                        <span>❤️ ${likesCount} ไลก์</span>
+                    </div>
+                    <div class="space-y-2 pt-2 border-t border-slate-800">
+                        <p class="text-xs font-bold text-pink-400">ความคิดเห็น</p>
+                        <div class="space-y-1.5 max-h-40 overflow-y-auto">${commentsHtml || '<p class="text-[10px] text-slate-500">ยังไม่มีความคิดเห็น</p>'}</div>
+                        <div class="flex gap-2 pt-2">
+                            <input type="text" id="commentInput_${postId}" placeholder="เขียนคอมเมนต์..." class="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs">
+                            <button onclick="addComment('${postId}')" class="bg-pink-600 px-3 py-2 rounded-xl text-xs font-bold">ส่ง</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        window.closeDetailModal = () => document.getElementById('detailModal').classList.add('hidden');
+
+        window.addComment = async (postId) => {
+            const input = document.getElementById(`commentInput_${postId}`);
+            const text = input.value.trim();
+            if(!text) return;
             try {
-                const snap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
+                await addDoc(collection(db, "posts", postId, "comments"), {
+                    author: userProfile.displayName,
+                    text: text,
+                    createdAt: serverTimestamp()
+                });
+                input.value = '';
+            } catch(e) { console.error(e); }
+        }
+
+        // ระบบแชทเรียลไทม์ (Mutual Follow เท่านั้น)
+        window.openChat = async (targetEmail, targetName) => {
+            activeChatUser = targetEmail;
+            document.getElementById('chatTargetName').innerText = targetName;
+            document.getElementById('chatModal').classList.remove('hidden');
+
+            const chatId = [email, targetEmail].sort().join('_');
+            const chatContainer = document.getElementById('chatMessages');
+
+            unsubscribeChat = onSnapshot(query(collection(db, "chats", chatId, "messages"), orderBy("createdAt", "asc")), (snap) => {
                 let html = '';
                 snap.forEach(d => {
-                    const p = d.data();
-                    const postId = d.id;
-                    const likesCount = p.likes ? p.likes.length : 0;
-                    const isOwner = p.email === email;
-                    
+                    const m = d.data();
+                    const isMe = m.sender === email;
                     html += `
-                    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
-                        <div class="flex justify-between items-center">
-                            <p class="text-xs font-bold text-slate-200">${p.author} <span class="text-[10px] text-slate-500 font-normal">(@${p.username || 'user'})</span></p>
-                            ${isOwner ? `<button onclick="deletePost('${postId}')" class="text-slate-500 hover:text-red-500 text-xs transition">🗑️ ลบ</button>` : ''}
-                        </div>
-                        <div class="w-full bg-black flex items-center justify-center rounded-2xl overflow-hidden">
-                            <img src="${p.imageUrl}" class="w-full h-auto max-h-[500px] object-contain block">
-                        </div>
-                        <p class="text-xs text-slate-300">${p.caption || ''}</p>
-                        <div class="flex items-center gap-4 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
-                            <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 hover:text-pink-500 transition">
-                                <span>❤️</span> <span>${likesCount}</span>
-                            </button>
-                            <button onclick="alert('ฟีเจอร์คอมเมนต์กำลังมา')" class="flex items-center gap-1.5 hover:text-pink-500 transition">
-                                <span>💬</span> <span>คอมเมนต์</span>
-                            </button>
-                            <button onclick="sharePost('${p.imageUrl}')" class="flex items-center gap-1.5 hover:text-pink-500 transition ml-auto">
-                                <span>🔗</span> <span>แชร์</span>
-                            </button>
+                    <div class="flex ${isMe ? 'justify-end' : 'justify-start'}">
+                        <div class="max-w-[75%] px-3 py-2 rounded-2xl text-xs ${isMe ? 'bg-pink-600 text-white' : 'bg-slate-800 text-slate-200'}">
+                            ${m.text}
                         </div>
                     </div>`;
                 });
-                container.innerHTML = html || `<p class="text-center text-slate-500 text-xs py-10">ยังไม่มีโพสต์ในขณะนี้</p>`;
+                chatContainer.innerHTML = html || `<p class="text-center text-slate-500 text-xs py-10">เริ่มส่งข้อความหากันได้เลย</p>`;
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
+
+        window.closeChat = () => {
+            document.getElementById('chatModal').classList.add('hidden');
+            if(unsubscribeChat) { unsubscribeChat(); unsubscribeChat = null; }
+            loadMessages();
+        }
+
+        window.sendMessage = async () => {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if(!text || !activeChatUser) return;
+            try {
+                const chatId = [email, activeChatUser].sort().join('_');
+                await addDoc(collection(db, "chats", chatId, "messages"), {
+                    sender: email,
+                    text: text,
+                    createdAt: serverTimestamp()
+                });
+                input.value = '';
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadFeed() {
+            const container = document.getElementById('feedContainer');
+            container.innerHTML = `<p class="text-center text-slate-500 text-xs py-10">กำลังโหลดข้อมูลฟีด...</p>`;
+            
+            try {
+                unsubscribeFeed = onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc")), (snap) => {
+                    let html = '';
+                    snap.forEach(d => {
+                        const p = d.data();
+                        const postId = d.id;
+                        const likesCount = p.likes ? p.likes.length : 0;
+                        const isLiked = p.likes && p.likes.includes(email);
+                        const isOwner = p.email === email;
+                        
+                        html += `
+                        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <p class="text-xs font-bold text-slate-200">${p.author} <span class="text-[10px] text-slate-500 font-normal">(@${p.username || 'user'})</span></p>
+                                ${isOwner ? `<button onclick="deletePost('${postId}')" class="text-slate-500 hover:text-red-500 text-xs transition">🗑️ ลบ</button>` : ''}
+                            </div>
+                            <div onclick="openPostDetail('${postId}')" class="w-full bg-black flex items-center justify-center rounded-2xl overflow-hidden cursor-pointer">
+                                <img src="${p.imageUrl}" class="w-full h-auto max-h-[500px] object-contain block">
+                            </div>
+                            <p class="text-xs text-slate-300">${p.caption || ''}</p>
+                            <div class="flex items-center gap-4 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
+                                <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 hover:text-pink-500 transition">
+                                    <span>${isLiked ? '❤️' : '🤍'}</span> <span>${likesCount}</span>
+                                </button>
+                                <button onclick="openPostDetail('${postId}')" class="flex items-center gap-1.5 hover:text-pink-500 transition">
+                                    <span>💬</span> <span>คอมเมนต์</span>
+                                </button>
+                                <button onclick="sharePost('${p.imageUrl}')" class="flex items-center gap-1.5 hover:text-pink-500 transition ml-auto">
+                                    <span>🔗</span> <span>แชร์</span>
+                                </button>
+                            </div>
+                        </div>`;
+                    });
+                    container.innerHTML = html || `<p class="text-center text-slate-500 text-xs py-10">ยังไม่มีโพสต์ในขณะนี้</p>`;
+                });
             } catch (error) {
                 container.innerHTML = `<p class="text-center text-red-500 text-xs py-10">ไม่สามารถโหลดฟีดได้</p>`;
             }
         }
 
-        async function loadSearch() {
-            const container = document.getElementById('feedContainer');
-            container.innerHTML = `
-            <div class="space-y-4">
-                <input type="text" id="searchInput" oninput="searchUsers()" placeholder="ค้นหาชื่อ หรือ @username..." class="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-2xl text-xs">
-                <div id="searchResultsList" class="space-y-2">
-                    <p class="text-center text-slate-500 text-xs py-10">พิมพ์เพื่อค้นหาเพื่อน...</p>
-                </div>
-            </div>`;
-        }
-
         async function loadMessages() {
             const container = document.getElementById('feedContainer');
-            container.innerHTML = `
-            <div class="space-y-3">
-                <h3 class="text-xs font-bold text-pink-400">ข้อความ (Direct Message)</h3>
-                <p class="text-[11px] text-slate-400">คุณสามารถส่งข้อความหากันได้เฉพาะผู้ใช้ที่คุณติดตามและติดตามคุณกลับแล้วเท่านั้น (Mutual Follow)</p>
-                <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl text-center space-y-2">
-                    <p class="text-xs text-slate-500">ยังไม่มีห้องแชทที่เปิดใช้งาน</p>
-                </div>
-            </div>`;
+            container.innerHTML = `<p class="text-center text-slate-500 text-xs py-10">กำลังโหลดรายชื่อแชท...</p>`;
+            try {
+                const mySnap = await getDoc(doc(db, "users", email));
+                if(!mySnap.exists()) {
+                    container.innerHTML = `<p class="text-center text-slate-500 text-xs py-10">ยังไม่มีรายชื่อแชท (ต้องติดตามกันและกันก่อน)</p>`;
+                    return;
+                }
+                const myData = mySnap.data();
+                const following = myData.following || [];
+                const followers = myData.followers || [];
+
+                // หาคนที่ติดตามกันและกัน (Mutual Follow)
+                const mutuals = following.filter(f => followers.includes(f));
+
+                if(mutuals.length === 0) {
+                    container.innerHTML = `
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-bold text-pink-400">ข้อความ (Direct Message)</h3>
+                        <p class="text-[11px] text-slate-400">คุณสามารถส่งข้อความหากันได้เฉพาะผู้ใช้ที่คุณติดตามและติดตามคุณกลับแล้วเท่านั้น (Mutual Follow)</p>
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl text-center space-y-2">
+                            <p class="text-xs text-slate-500">ยังไม่มีเพื่อนที่ติดตามกันและกัน</p>
+                        </div>
+                    </div>`;
+                    return;
+                }
+
+                let html = `<div class="space-y-3"><h3 class="text-xs font-bold text-pink-400">ข้อความ (Direct Message)</h3><div class="space-y-2">`;
+                for(let mEmail of mutuals) {
+                    const uSnap = await getDoc(doc(db, "users", mEmail));
+                    if(uSnap.exists()) {
+                        const u = uSnap.data();
+                        html += `
+                        <div onclick="openChat('${u.email}', '${u.displayName}')" class="flex items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl cursor-pointer hover:border-pink-500 transition">
+                            <div class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center font-bold text-pink-400">
+                                ${u.avatarUrl ? `<img src="${u.avatarUrl}" class="w-full h-full object-cover">` : u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <p class="text-xs font-bold">${u.displayName}</p>
+                                <p class="text-[10px] text-slate-400">@${u.username} • แตะเพื่อแชท</p>
+                            </div>
+                        </div>`;
+                    }
+                }
+                html += `</div></div>`;
+                container.innerHTML = html;
+            } catch(e) {
+                container.innerHTML = `<p class="text-center text-red-500 text-xs py-10">โหลดข้อความไม่สำเร็จ</p>`;
+            }
         }
 
         async function loadProfile() {
             const container = document.getElementById('feedContainer');
             container.innerHTML = `<p class="text-center text-slate-500 text-xs py-10">กำลังโหลดโปรไฟล์...</p>`;
             try {
+                const userSnap = await getDoc(doc(db, "users", email));
+                const uData = userSnap.exists() ? userSnap.data() : {};
+                const followersCount = (uData.followers || []).length;
+                const followingCount = (uData.following || []).length;
+
                 const snap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
                 let userPosts = [];
                 snap.forEach(d => {
@@ -381,8 +584,8 @@
                         </div>
                         <div class="flex justify-around flex-1 text-center">
                             <div><p class="text-sm font-bold">${userPosts.length}</p><p class="text-[11px] text-slate-400">โพสต์</p></div>
-                            <div><p class="text-sm font-bold">0</p><p class="text-[11px] text-slate-400">ผู้ติดตาม</p></div>
-                            <div><p class="text-sm font-bold">0</p><p class="text-[11px] text-slate-400">กำลังติดตาม</p></div>
+                            <div><p class="text-sm font-bold">${followersCount}</p><p class="text-[11px] text-slate-400">ผู้ติดตาม</p></div>
+                            <div><p class="text-sm font-bold">${followingCount}</p><p class="text-[11px] text-slate-400">กำลังติดตาม</p></div>
                         </div>
                     </div>
 
@@ -404,9 +607,9 @@
                 } else {
                     userPosts.forEach(p => {
                         html += `
-                        <div class="aspect-square bg-slate-800 relative group overflow-hidden">
+                        <div onclick="openPostDetail('${p.id}')" class="aspect-square bg-slate-800 relative group overflow-hidden cursor-pointer">
                             <img src="${p.imageUrl}" class="w-full h-full object-cover">
-                            <button onclick="deletePost('${p.id}')" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition font-bold">🗑️ ลบ</button>
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition font-bold">🔍 ดูโพสต์</div>
                         </div>`;
                     });
                     html += `</div>`;
