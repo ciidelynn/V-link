@@ -19,14 +19,14 @@
             <button onclick="openPostModal()" class="bg-pink-600 text-white p-2 rounded-full text-xs shadow-lg shadow-pink-900/40">เพิ่มโพสต์</button>
         </div>
 
-        <!-- Feed Container -->
+        <!-- Main Content Container (Feed / Profile) -->
         <div id="feedContainer" class="flex-1 overflow-y-auto space-y-4 p-4 pb-20">
             <p class="text-center text-slate-500 text-xs py-10">กำลังโหลดข้อมูล...</p>
         </div>
 
         <!-- Bottom Nav -->
         <div class="absolute bottom-0 left-0 right-0 bg-slate-950/95 border-t border-slate-800 p-3 flex justify-around z-20">
-            <button onclick="switchTab('feed')" id="navFeed" class="text-pink-500 flex flex-col items-center text-[10px]">หน้าแรก</button>
+            <button onclick="switchTab('feed')" id="navFeed" class="text-pink-500 flex flex-col items-center text-[10px] font-bold">หน้าแรก</button>
             <button onclick="switchTab('profile')" id="navProfile" class="text-slate-500 flex flex-col items-center text-[10px]">โปรไฟล์</button>
         </div>
     </div>
@@ -117,7 +117,7 @@
                 });
                 
                 closePostModal();
-                loadFeed();
+                currentTab === 'feed' ? loadFeed() : loadProfile();
             } catch(e) { 
                 alert("การเชื่อมต่อมีปัญหา: " + e.message); 
             } finally { 
@@ -127,35 +127,30 @@
 
         window.switchTab = (tab) => {
             currentTab = tab;
+            document.getElementById('navFeed').className = tab === 'feed' ? "text-pink-500 flex flex-col items-center text-[10px] font-bold" : "text-slate-500 flex flex-col items-center text-[10px]";
+            document.getElementById('navProfile').className = tab === 'profile' ? "text-pink-500 flex flex-col items-center text-[10px] font-bold" : "text-slate-500 flex flex-col items-center text-[10px]";
             tab === 'feed' ? loadFeed() : loadProfile();
         }
 
-        // ระบบลบโพสต์
         window.deletePost = async (postId) => {
             if(confirm("คุณต้องการลบโพสต์นี้ใช่หรือไม่?")) {
                 try {
                     await deleteDoc(doc(db, "posts", postId));
-                    loadFeed();
+                    currentTab === 'feed' ? loadFeed() : loadProfile();
                 } catch(e) {
                     alert("ไม่สามารถลบโพสต์ได้: " + e.message);
                 }
             }
         }
 
-        // ระบบกดไลก์
         window.toggleLike = async (postId) => {
             const postRef = doc(db, "posts", postId);
             try {
-                await updateDoc(postRef, {
-                    likes: arrayUnion(email)
-                });
+                await updateDoc(postRef, { likes: arrayUnion(email) });
                 loadFeed();
-            } catch(e) {
-                console.error(e);
-            }
+            } catch(e) { console.error(e); }
         }
 
-        // ปุ่มแชร์
         window.sharePost = (url) => {
             if (navigator.share) {
                 navigator.share({ title: 'S-link Post', url: url }).catch(() => {});
@@ -165,7 +160,6 @@
             }
         }
 
-        // เปิดช่องคอมเมนต์
         window.openCommentModal = (postId) => {
             alert("ฟีเจอร์คอมเมนต์กำลังจะมาเร็วๆ นี้!");
         }
@@ -180,7 +174,7 @@
                     const p = d.data();
                     const postId = d.id;
                     const likesCount = p.likes ? p.likes.length : 0;
-                    const isOwner = p.email === email; // ตรวจสอบว่าเป็นเจ้าของโพสต์หรือไม่
+                    const isOwner = p.email === email;
                     
                     html += `
                     <div class="bg-slate-900 border border-slate-800 rounded-3xl p-4 space-y-3">
@@ -188,16 +182,10 @@
                             <p class="text-xs font-bold text-slate-200">${p.author}</p>
                             ${isOwner ? `<button onclick="deletePost('${postId}')" class="text-slate-500 hover:text-red-500 text-xs transition">🗑️ ลบ</button>` : ''}
                         </div>
-                        
-                        <!-- รูปภาพปรับขนาดตามธรรมชาติ -->
                         <div class="w-full bg-black flex items-center justify-center rounded-2xl overflow-hidden">
                             <img src="${p.imageUrl}" class="w-full h-auto max-h-[500px] object-contain block">
                         </div>
-
-                        <!-- แคปชัน -->
                         <p class="text-xs text-slate-300">${p.caption || ''}</p>
-
-                        <!-- แถบปุ่มปฏิสัมพันธ์ (ไลก์, คอมเมนต์, แชร์) -->
                         <div class="flex items-center gap-4 pt-2 border-t border-slate-800/80 text-xs text-slate-400">
                             <button onclick="toggleLike('${postId}')" class="flex items-center gap-1.5 hover:text-pink-500 transition">
                                 <span>❤️</span> <span>${likesCount}</span>
@@ -219,7 +207,79 @@
 
         async function loadProfile() {
             const container = document.getElementById('feedContainer');
-            container.innerHTML = `<p class="text-center text-xs py-10 text-slate-400">โปรไฟล์ผู้ใช้: ${username}</p>`;
+            container.innerHTML = `<p class="text-center text-slate-500 text-xs py-10">กำลังโหลดโปรไฟล์...</p>`;
+            try {
+                const snap = await getDocs(query(collection(db, "posts"), orderBy("createdAt", "desc")));
+                let userPosts = [];
+                snap.forEach(d => {
+                    const p = d.data();
+                    if(p.email === email) {
+                        userPosts.push({ id: d.id, ...p });
+                    }
+                });
+
+                let html = `
+                <div class="space-y-6 pt-2">
+                    <!-- Instagram Profile Header -->
+                    <div class="flex items-center gap-6 px-2">
+                        <div class="w-20 h-20 bg-gradient-to-tr from-pink-500 to-purple-600 rounded-full p-[2px] flex-shrink-0">
+                            <div class="w-full h-full bg-slate-900 rounded-full flex items-center justify-center text-xl font-bold text-pink-400">
+                                ${username.charAt(0).toUpperCase()}
+                            </div>
+                        </div>
+                        <div class="flex justify-around flex-1 text-center">
+                            <div>
+                                <p class="text-sm font-bold">${userPosts.length}</p>
+                                <p class="text-[11px] text-slate-400">โพสต์</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold">0</p>
+                                <p class="text-[11px] text-slate-400">ผู้ติดตาม</p>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold">0</p>
+                                <p class="text-[11px] text-slate-400">กำลังติดตาม</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bio Section -->
+                    <div class="px-2 space-y-1">
+                        <p class="text-xs font-bold text-slate-100">@${username}</p>
+                        <p class="text-[11px] text-slate-400">ยินดีต้อนรับสู่โปรไฟล์ S-link ของฉัน ✨</p>
+                    </div>
+
+                    <!-- Profile Grid Header -->
+                    <div class="border-t border-slate-800 pt-3">
+                        <div class="flex justify-center text-pink-500 text-xs font-bold pb-2 border-b-2 border-pink-500 w-24 mx-auto">
+                            📷 โพสต์ทั้งหมด
+                        </div>
+                    </div>
+
+                    <!-- Grid Posts -->
+                    <div class="grid grid-cols-3 gap-1">
+                `;
+
+                if(userPosts.length === 0) {
+                    html += `</div><p class="text-center text-slate-500 text-xs py-10 col-span-3">ยังไม่มีโพสต์ของคุณ</p>`;
+                } else {
+                    userPosts.forEach(p => {
+                        html += `
+                        <div class="aspect-square bg-slate-800 relative group overflow-hidden">
+                            <img src="${p.imageUrl}" class="w-full h-full object-cover">
+                            <button onclick="deletePost('${p.id}')" class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs transition font-bold">
+                                🗑️ ลบ
+                            </button>
+                        </div>`;
+                    });
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+                container.innerHTML = html;
+            } catch (error) {
+                container.innerHTML = `<p class="text-center text-red-500 text-xs py-10">ไม่สามารถโหลดโปรไฟล์ได้</p>`;
+            }
         }
 
         loadFeed();
