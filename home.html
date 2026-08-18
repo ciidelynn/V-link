@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtual Idol Ecosystem</title>
+    <title>Virtual Idol Ecosystem - Home</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
@@ -13,8 +13,14 @@
     </style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex justify-center p-4">
-    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl p-8 min-h-[700px]">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl p-8 min-h-[700px] flex flex-col">
         
+        <!-- ส่วนแสดง วันที่ เดือน ปี (ค.ศ.) และสถานะ Realtime -->
+        <div class="flex justify-between items-center text-xs text-slate-400 mb-6">
+            <span id="realtimeClock" class="font-medium">Loading...</span>
+            <span id="roleBadge" class="px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-slate-800 text-slate-300">User</span>
+        </div>
+
         <div class="mb-8">
             <h1 class="text-2xl font-bold">สวัสดี, <span id="userDisplay" class="text-pink-400">...</span></h1>
             <p class="text-xs text-slate-400">Virtual Idol Ecosystem</p>
@@ -85,19 +91,40 @@
         </div>
 
         <div class="mt-auto pt-10 text-center">
-            <button onclick="localStorage.clear(); window.location.href='index.html';" class="text-xs text-slate-600 hover:text-slate-400 underline">ออกจากระบบ</button>
+            <button onclick="localStorage.clear(); window.location.href='index.html';" class="text-xs text-slate-500 hover:text-slate-300 underline">ออกจากระบบ</button>
         </div>
     </div>
 
     <script>
+        // ฟังก์ชันแสดง วันที่ เดือน ปี (ค.ศ.) และเวลา แบบเรียลไทม์
+        function updateClock() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            document.getElementById('realtimeClock').innerText = now.toLocaleDateString('en-GB', options);
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // จัดการแสดงผลข้อมูลผู้ใช้และสิทธิ์
         const role = localStorage.getItem('userRole');
-        document.getElementById('userDisplay').innerText = localStorage.getItem('userEmail')?.split('@')[0] || "ผู้ใช้";
+        const email = localStorage.getItem('userEmail');
+        document.getElementById('userDisplay').innerText = email ? email.split('@')[0] : "ผู้ใช้";
+
+        const badge = document.getElementById('roleBadge');
         if (role === 'admin') {
             document.getElementById('adminApp').classList.remove('hidden');
             document.getElementById('agencyApp').classList.remove('hidden');
+            badge.innerText = "ADMIN";
+            badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-pink-950 text-pink-400 border border-pink-800/50";
         } else if (role === 'agency') {
             document.getElementById('agencyApp').classList.remove('hidden');
+            badge.innerText = "AGENCY";
+            badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-purple-950 text-purple-400 border border-purple-800/50";
+        } else {
+            badge.innerText = "USER";
+            badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-slate-800 text-slate-300";
         }
+
         function openApp(url) { window.location.href = url; }
     </script>
 </body>
