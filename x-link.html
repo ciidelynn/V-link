@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X-link - Public Microblogging</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white min-h-screen flex justify-center">
+
+    <div class="w-full max-w-md bg-black border-x border-neutral-800 h-screen flex flex-col relative">
+        
+        <!-- Header -->
+        <div class="sticky top-0 bg-black/80 backdrop-blur p-4 border-b border-neutral-800 font-bold text-lg">X-link</div>
+
+        <!-- Feed Area -->
+        <div id="feedContainer" class="flex-1 overflow-y-auto pb-20">
+            <!-- Feed / Profile / Search Content -->
+        </div>
+
+        <!-- Bottom Navigation (เน้น Home, Search, Profile) -->
+        <div class="absolute bottom-0 w-full max-w-md border-t border-neutral-800 p-4 flex justify-around bg-black">
+            <button onclick="switchTab('feed')" class="text-xl">🏠</button>
+            <button onclick="switchTab('search')" class="text-xl">🔍</button>
+            <button onclick="switchTab('profile')" class="text-xl">👤</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // [คงส่วน Firebase Config และการ Import ไว้เหมือนเดิม]
+        
+        // ฟังก์ชันระบบติดตาม (ที่ใช้ร่วมกันได้ทั้งหน้า Search และ Profile)
+        window.toggleFollow = async (targetEmail) => {
+            const myRef = doc(db, "users", email);
+            const targetRef = doc(db, "users", targetEmail);
+            
+            // Logic การ update รายชื่อ Following ของเรา และ Followers ของเขา
+            // ... (ใช้ logic เดิมจาก S-link ที่คุณมีอยู่ได้เลยครับ)
+            
+            // หลังจากกด Follow ให้รีโหลดหน้าปัจจุบัน (search หรือ profile)
+            refreshCurrentTab();
+        };
+
+        // หน้า Search สำหรับค้นหาผู้ใช้งานและกดติดตาม
+        async function loadSearch() {
+            const container = document.getElementById('feedContainer');
+            container.innerHTML = `
+                <div class="p-4">
+                    <input type="text" id="searchInput" oninput="searchUsers()" placeholder="ค้นหาเพื่อนเพื่อติดตาม..." 
+                    class="w-full bg-neutral-900 p-3 rounded-full text-sm outline-none border border-neutral-700">
+                    <div id="results" class="mt-4 space-y-4"></div>
+                </div>
+            `;
+        }
+
+        // หน้าโปรไฟล์ที่โชว์จำนวน Follower/Following
+        async function loadProfile() {
+            const container = document.getElementById('feedContainer');
+            // ดึงข้อมูล User จาก Firestore
+            // แสดงผล: [จำนวนโพสต์] [จำนวนกำลังติดตาม] [จำนวนผู้ติดตาม]
+            // ...
+        }
+
+        // ฟังก์ชันหลักๆ สำหรับ X-link:
+        // 1. loadFeed(): แสดงโพสต์สาธารณะของทุกคน
+        // 2. loadSearch(): ค้นหา user และมีปุ่ม Follow/Unfollow
+        // 3. loadProfile(): แสดง Stats การติดตาม
+    </script>
+</body>
+</html>
