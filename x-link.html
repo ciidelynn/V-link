@@ -118,7 +118,7 @@
                         <img id="profileAvatarImg" src="" class="w-full h-full object-cover hidden">
                         <span id="profileInitial">U</span>
                     </div>
-                    <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px]">เปลี่ยนรูป</div>
+                    <div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition text-[10px] text-white font-medium">เปลี่ยนรูป</div>
                     <input type="file" id="profileImageInput" accept="image/*" class="hidden" onchange="uploadToCloudinary(event, 'profile')">
                 </div>
 
@@ -130,8 +130,8 @@
                 <p id="profileBio" class="text-xs text-slate-300 px-6 italic hidden"></p>
 
                 <div class="flex space-x-6 text-xs text-slate-300 bg-slate-800/40 border border-slate-800 py-2 px-6 rounded-2xl">
-                    <div><span class="font-bold text-white">12</span> กำลังติดตาม</div>
-                    <div><span class="font-bold text-white" id="followersCount">48</span> ผู้ติดตาม</div>
+                    <div onclick="openFollowingModal()" class="cursor-pointer hover:text-pink-400 transition"><span class="font-bold text-white" id="followingCount">0</span> กำลังติดตาม</div>
+                    <div><span class="font-bold text-white" id="followersCount">0</span> ผู้ติดตาม</div>
                 </div>
 
                 <button onclick="openEditModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-xs font-semibold transition">
@@ -189,14 +189,27 @@
         </div>
     </div>
 
+    <!-- Modal รายชื่อกำลังติดตาม -->
+    <div id="followingModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-3xl p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-sm">กำลังติดตาม</h3>
+                <button onclick="closeFollowingModal()" class="text-slate-400 hover:text-white text-xs">✕</button>
+            </div>
+            <div id="followingListContainer" class="space-y-3 max-h-60 overflow-y-auto">
+                <div class="text-xs text-slate-500 text-center py-6">คุณยังไม่ได้ติดตามใคร</div>
+            </div>
+        </div>
+    </div>
+
     <script>
         let uploadedImageSrc = null;
         let globalPostsCache = [];
         let likedPostIds = JSON.parse(localStorage.getItem('xlink_liked')) || [];
+        let followingList = JSON.parse(localStorage.getItem('xlink_following')) || [];
 
-        // ตั้งค่า Cloudinary ของคุณที่นี่ (ใช้ Unsigned Preset สำหรับอัปโหลดผ่านเว็บได้ทันที)
-        const CLOUD_NAME = "demo"; // เปลี่ยนเป็น cloud_name ของคุณ
-        const UPLOAD_PRESET = "ml_default"; // เปลี่ยนเป็น upload_preset ของคุณ
+        const CLOUD_NAME = "demo"; 
+        const UPLOAD_PRESET = "ml_default"; 
 
         window.onload = function() {
             loadProfileData();
@@ -389,6 +402,9 @@
             const profileData = JSON.parse(localStorage.getItem('xlink_profile')) || {};
             const myUsername = profileData.user || '@user';
 
+            document.getElementById('followingCount').innerText = followingList.length;
+            document.getElementById('followersCount').innerText = 0;
+
             const myPostsContainer = document.getElementById('profile-myposts');
             const likedPostsContainer = document.getElementById('profile-likedposts');
 
@@ -425,6 +441,38 @@
 
             myPostsContainer.innerHTML = myCount > 0 ? myPostsHTML : '<div class="text-xs text-slate-500 text-center py-6">ยังไม่มีโพสต์ของคุณ</div>';
             likedPostsContainer.innerHTML = likedCount > 0 ? likedPostsHTML : '<div class="text-xs text-slate-500 text-center py-6">ยังไม่มีโพสต์ที่คุณกดใจ</div>';
+            
+            renderFollowingList();
+        }
+
+        function renderFollowingList() {
+            const container = document.getElementById('followingListContainer');
+            if (followingList.length === 0) {
+                container.innerHTML = '<div class="text-xs text-slate-500 text-center py-6">คุณยังไม่ได้ติดตามใคร</div>';
+                return;
+            }
+            let html = '';
+            followingList.forEach(user => {
+                html += `
+                    <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center font-bold text-xs">${user.name.charAt(0)}</div>
+                            <div>
+                                <h4 class="text-xs font-bold">${user.name}</h4>
+                                <p class="text-[10px] text-slate-400">${user.username}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function openFollowingModal() {
+            document.getElementById('followingModal').classList.remove('hidden');
+        }
+        function closeFollowingModal() {
+            document.getElementById('followingModal').classList.add('hidden');
         }
 
         function openEditModal() {
