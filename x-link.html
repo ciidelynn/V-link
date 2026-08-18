@@ -5,69 +5,302 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X-link - Social Hub</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Prompt', sans-serif; }
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: flex; }
     </style>
 </head>
 <body class="bg-slate-950 text-white min-h-screen flex justify-center p-4">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl flex flex-col h-[700px] overflow-hidden">
         
         <!-- Header -->
-        <div class="p-6 border-b border-slate-800 flex items-center">
-            <button onclick="window.location.href='home.html'" class="mr-4 text-slate-400">←</button>
-            <h1 class="font-bold text-lg">X-link</h1>
+        <div class="p-5 border-b border-slate-800 flex items-center bg-slate-900/80 backdrop-blur z-10">
+            <button onclick="window.location.href='home.html'" class="mr-4 text-slate-400 hover:text-white transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <h1 class="font-bold text-lg" id="headerTitle">หน้าหลัก</h1>
         </div>
 
         <!-- Scrollable Area -->
-        <div class="flex-grow overflow-y-auto p-4" id="mainContainer">
+        <div class="flex-grow overflow-y-auto p-4 flex flex-col space-y-4" id="mainContainer">
             
-            <!-- หน้าหลัก (Timeline) -->
-            <div id="tab-home" class="tab-content active space-y-4">
-                <div class="text-xs text-slate-500 italic">ฟีดข่าวจากค่ายและศิลปินที่ติดตาม...</div>
-                <!-- ตัวอย่าง Post -->
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <div class="flex items-center space-x-2">
-                        <div class="w-8 h-8 rounded-full bg-pink-500"></div>
-                        <span class="font-bold text-sm">Artist Name</span>
+            <!-- 1. หน้าหลัก (Timeline & Post Box) -->
+            <div id="tab-home" class="tab-content active flex-col space-y-4">
+                
+                <!-- กล่องสร้างโพสต์ -->
+                <div class="bg-slate-800/80 border border-slate-700/60 p-3.5 rounded-2xl space-y-3">
+                    <textarea id="postInput" placeholder="คุณกำลังคิดอะไรอยู่? (พิมพ์ # เพื่อสร้างแฮชแท็ก...)" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-slate-500 resize-none h-20"></textarea>
+                    
+                    <!-- ส่วนอัปโหลดรูปภาพ -->
+                    <div class="flex items-center justify-between">
+                        <label class="cursor-pointer flex items-center space-x-1.5 text-xs text-pink-400 hover:text-pink-300 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                            <span id="imageFileName">แนบรูปภาพ</span>
+                            <input type="file" id="postImageInput" accept="image/*" class="hidden" onchange="previewImage(event)">
+                        </label>
+                        <span class="text-[10px] text-slate-400">โพสต์ในนาม: <span id="posterRoleBadge" class="text-pink-400 font-bold">แฟนคลับ</span></span>
                     </div>
-                    <p class="mt-2 text-sm">วันนี้สนุกมากเลยครับ! #คุยเล่นกับศิลปิน</p>
-                    <div class="mt-3 flex space-x-4 text-xs text-slate-400">
-                        <span>❤️ ใจ</span> <span>🔁 รีโพสต์</span> <span>💬 โควท</span>
+
+                    <!-- พรีวิวรูปภาพก่อนโพสต์ -->
+                    <div id="imagePreviewContainer" class="hidden relative rounded-xl overflow-hidden max-h-32 bg-slate-950 border border-slate-700">
+                        <img id="imagePreview" src="" alt="Preview" class="w-full h-full object-cover">
+                        <button onclick="removeImage()" class="absolute top-1 right-1 bg-black/70 rounded-full p-1 text-white hover:bg-black text-xs">✕</button>
+                    </div>
+
+                    <button onclick="createPost()" class="w-full py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-xl text-xs font-bold transition shadow-md shadow-pink-600/20">โพสต์</button>
+                </div>
+
+                <div class="text-[11px] text-slate-500 italic text-center">ฟีดข่าวจากค่ายและศิลปินที่ติดตาม</div>
+                
+                <!-- พื้นที่แสดงฟีดโพสต์ -->
+                <div id="feedContainer" class="space-y-4">
+                    <!-- โพสต์ตัวอย่าง -->
+                    <div class="bg-slate-800/60 border border-slate-800 p-4 rounded-2xl space-y-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-500 to-purple-500 flex items-center justify-center font-bold text-sm">A</div>
+                            <div>
+                                <h4 class="font-bold text-sm">Agency Official</h4>
+                                <p class="text-[10px] text-slate-400">@agency_official</p>
+                            </div>
+                        </div>
+                        <p class="text-sm text-slate-200">ประกาศเปิดตัวแฮชแท็กใหม่สำหรับกิจกรรมสัปดาห์นี้ #SOLNIGHT_Debut แฟนๆ สามารถเริ่มใช้งานได้เลย!</p>
+                        
+                        <!-- แถบปุ่มกด ใจ, รีโพสต์, โควท, คอมเมนต์ พร้อมจำนวน -->
+                        <div class="flex justify-between items-center pt-2 border-t border-slate-700/50 text-xs text-slate-400">
+                            <button onclick="likePost(this)" class="flex items-center space-x-1 hover:text-pink-400 transition">
+                                <span>❤️</span> <span class="like-count">124</span>
+                            </button>
+                            <button onclick="repostPost(this)" class="flex items-center space-x-1 hover:text-green-400 transition">
+                                <span>🔁</span> <span class="repost-count">45</span>
+                            </button>
+                            <button onclick="quotePost(this)" class="flex items-center space-x-1 hover:text-blue-400 transition">
+                                <span>💬</span> <span class="quote-count">12</span>
+                            </button>
+                            <button onclick="openCommentModal()" class="flex items-center space-x-1 hover:text-purple-400 transition">
+                                <span>💭</span> <span class="comment-count">8</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- หน้าค้นหา -->
-            <div id="tab-search" class="tab-content space-y-4">
-                <input type="text" placeholder="ค้นหาศิลปิน หรือ #แฮชแท็ก" class="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-sm">
-                <div class="text-xs text-slate-500">#Trending ในขณะนี้...</div>
-            </div>
-
-            <!-- หน้าโปรไฟล์ -->
-            <div id="tab-profile" class="tab-content space-y-4 text-center">
-                <div class="w-20 h-20 rounded-full bg-slate-700 mx-auto"></div>
-                <h2 class="font-bold">User Name</h2>
-                <p class="text-xs text-slate-400">Bio... (แก้ไขได้)</p>
-                <div class="border-t border-slate-800 pt-4 mt-4">
-                    <p class="text-sm font-semibold">โพสต์ที่ถูกใจ / รีโพสต์</p>
+            <!-- 2. หน้าค้นหา -->
+            <div id="tab-search" class="tab-content flex-col space-y-4">
+                <div class="relative">
+                    <input type="text" placeholder="ค้นหาศิลปิน ค่าย หรือ #แฮชแท็ก" class="w-full p-3 pl-10 rounded-2xl bg-slate-950 border border-slate-800 text-sm focus:outline-none focus:border-slate-600">
+                    <svg class="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
+                
+                <div class="space-y-2">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1"># แฮชแท็กยอดฮิต</h3>
+                    <div class="p-3 bg-slate-800/40 border border-slate-800 rounded-xl text-sm font-semibold text-pink-400">#SOLNIGHT_Debut</div>
+                    <div class="p-3 bg-slate-800/40 border border-slate-800 rounded-xl text-sm font-semibold text-pink-400">#คุยเล่นกับศิลปิน</div>
                 </div>
             </div>
+
+            <!-- 3. หน้าโปรไฟล์ -->
+            <div id="tab-profile" class="tab-content flex-col items-center text-center space-y-3">
+                <div class="w-20 h-20 rounded-full bg-slate-800 border-2 border-slate-700 overflow-hidden flex items-center justify-center text-2xl font-bold shadow-lg mt-2">
+                    <span id="profileInitial">U</span>
+                </div>
+                <div>
+                    <h2 id="profileDisplayName" class="text-lg font-bold">ชื่อบัญชี</h2>
+                    <p id="profileUsername" class="text-xs text-slate-400">@username</p>
+                </div>
+                <p id="profileBio" class="text-xs text-slate-300 px-6 italic min-h-[2rem]">ไบโอของคุณ...</p>
+
+                <button onclick="openEditModal()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-xs font-semibold transition">
+                    แก้ไขโปรไฟล์
+                </button>
+
+                <div class="w-full border-t border-slate-800 mt-6 pt-4 text-left">
+                    <p class="text-xs font-bold text-slate-400 mb-3">โพสต์ที่ถูกใจ / รีโพสต์</p>
+                    <div class="text-xs text-slate-600 text-center py-6">ยังไม่มีโพสต์ที่ถูกใจหรือรีโพสต์</div>
+                </div>
+            </div>
+
         </div>
 
-        <!-- Bottom Tabs -->
-        <div class="grid grid-cols-3 border-t border-slate-800 bg-slate-900">
-            <button onclick="switchTab('home')" class="p-4 text-xs border-b-2 border-transparent hover:border-white">หน้าหลัก</button>
-            <button onclick="switchTab('search')" class="p-4 text-xs border-b-2 border-transparent hover:border-white">ค้นหา</button>
-            <button onclick="switchTab('profile')" class="p-4 text-xs border-b-2 border-transparent hover:border-white">โปรไฟล์</button>
+        <!-- Bottom Navigation Tabs -->
+        <div class="grid grid-cols-3 border-t border-slate-800 bg-slate-900 text-xs font-medium">
+            <button onclick="switchTab('home', 'หน้าหลัก')" id="btn-home" class="py-4 text-center text-white border-t-2 border-white transition">หน้าหลัก</button>
+            <button onclick="switchTab('search', 'ค้นหา')" id="btn-search" class="py-4 text-center text-slate-400 border-t-2 border-transparent transition hover:text-white">ค้นหา</button>
+            <button onclick="switchTab('profile', 'โปรไฟล์')" id="btn-profile" class="py-4 text-center text-slate-400 border-t-2 border-transparent transition hover:text-white">โปรไฟล์</button>
+        </div>
+    </div>
+
+    <!-- Modal แก้ไขโปรไฟล์ -->
+    <div id="editModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 class="font-bold text-base">แก้ไขโปรไฟล์</h3>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">ชื่อบัญชี</label>
+                    <input type="text" id="inputName" placeholder="ระบุชื่อบัญชี" class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-sm focus:outline-none focus:border-slate-600">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">ชื่อผู้ใช้ (@username)</label>
+                    <input type="text" id="inputUser" placeholder="ระบุชื่อผู้ใช้" class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-sm focus:outline-none focus:border-slate-600">
+                </div>
+                <div>
+                    <label class="text-[10px] text-slate-400 block mb-1">ไบโอ (เว้นว่างได้)</label>
+                    <textarea id="inputBio" placeholder="แนะนำตัวสั้นๆ..." class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-sm focus:outline-none focus:border-slate-600 h-20 resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex space-x-2 pt-2">
+                <button onclick="closeEditModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold transition">ยกเลิก</button>
+                <button onclick="saveProfile()" class="flex-1 py-2.5 rounded-xl bg-white text-black hover:bg-slate-200 text-xs font-bold transition">บันทึก</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal คอมเมนต์ -->
+    <div id="commentModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-3xl p-6 space-y-4 shadow-2xl">
+            <h3 class="font-bold text-base">ความคิดเห็น</h3>
+            <div class="max-h-40 overflow-y-auto space-y-2 text-xs text-slate-300">
+                <div class="p-2 bg-slate-800/60 rounded-xl"><b>Fan_01:</b> จริงด้วยเห็นด้วยเลย!</div>
+                <div class="p-2 bg-slate-800/60 rounded-xl"><b>Idol_Lover:</b> สุดยอดมากกก</div>
+            </div>
+            <textarea placeholder="เขียนคอมเมนต์..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white h-16 resize-none focus:outline-none"></textarea>
+            <div class="flex space-x-2">
+                <button onclick="closeCommentModal()" class="flex-1 py-2 rounded-xl bg-slate-800 text-xs">ปิด</button>
+                <button onclick="closeCommentModal()" class="flex-1 py-2 rounded-xl bg-pink-600 text-xs font-bold">ส่ง</button>
+            </div>
         </div>
     </div>
 
     <script>
-        function switchTab(tabName) {
+        const userRole = localStorage.getItem('userRole') || 'user';
+        document.getElementById('posterRoleBadge').innerText = userRole === 'admin' ? 'ค่าย/แอดมิน' : (userRole === 'agency' ? 'ศิลปิน/สังกัด' : 'แฟนคลับ');
+
+        let uploadedImageSrc = null;
+
+        function previewImage(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageSrc = e.target.result;
+                    document.getElementById('imagePreview').src = uploadedImageSrc;
+                    document.getElementById('imagePreviewContainer').classList.remove('hidden');
+                    document.getElementById('imageFileName').innerText = file.name.substring(0, 10) + '...';
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImage() {
+            uploadedImageSrc = null;
+            document.getElementById('postImageInput').value = '';
+            document.getElementById('imagePreviewContainer').classList.add('hidden');
+            document.getElementById('imageFileName').innerText = 'แนบรูปภาพ';
+        }
+
+        function switchTab(tabName, title) {
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
+            document.getElementById('headerTitle').innerText = title;
+
+            ['home', 'search', 'profile'].forEach(t => {
+                const btn = document.getElementById('btn-' + t);
+                btn.className = "py-4 text-center text-slate-400 border-t-2 border-transparent transition hover:text-white";
+            });
+            document.getElementById('btn-' + tabName).className = "py-4 text-center text-white border-t-2 border-white transition";
+        }
+
+        function createPost() {
+            const text = document.getElementById('postInput').value.trim();
+            if (!text && !uploadedImageSrc) return;
+
+            const feed = document.getElementById('feedContainer');
+            const name = document.getElementById('profileDisplayName').innerText !== 'ชื่อบัญชี' ? document.getElementById('profileDisplayName').innerText : 'ผู้ใช้งาน';
+            const user = document.getElementById('profileUsername').innerText !== '@username' ? document.getElementById('profileUsername').innerText : '@user';
+
+            let imageHTML = '';
+            if (uploadedImageSrc) {
+                imageHTML = `<div class="rounded-xl overflow-hidden max-h-48 border border-slate-700/60"><img src="${uploadedImageSrc}" class="w-full h-full object-cover"></div>`;
+            }
+
+            const newPostHTML = `
+                <div class="bg-slate-800/60 border border-slate-800 p-4 rounded-2xl space-y-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-9 h-9 rounded-full bg-pink-600 flex items-center justify-center font-bold text-sm">${name.charAt(0)}</div>
+                        <div>
+                            <h4 class="font-bold text-sm">${name}</h4>
+                            <p class="text-[10px] text-slate-400">${user}</p>
+                        </div>
+                    </div>
+                    ${text ? `<p class="text-sm text-slate-200">${text}</p>` : ''}
+                    ${imageHTML}
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-700/50 text-xs text-slate-400">
+                        <button onclick="likePost(this)" class="flex items-center space-x-1 hover:text-pink-400 transition">
+                            <span>❤️</span> <span class="like-count">0</span>
+                        </button>
+                        <button onclick="repostPost(this)" class="flex items-center space-x-1 hover:text-green-400 transition">
+                            <span>🔁</span> <span class="repost-count">0</span>
+                        </button>
+                        <button onclick="quotePost(this)" class="flex items-center space-x-1 hover:text-blue-400 transition">
+                            <span>💬</span> <span class="quote-count">0</span>
+                        </button>
+                        <button onclick="openCommentModal()" class="flex items-center space-x-1 hover:text-purple-400 transition">
+                            <span>💭</span> <span class="comment-count">0</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            feed.insertAdjacentHTML('afterbegin', newPostHTML);
+            
+            // รีเซ็ตฟอร์ม
+            document.getElementById('postInput').value = '';
+            removeImage();
+        }
+
+        function likePost(btn) {
+            const countSpan = btn.querySelector('.like-count');
+            countSpan.innerText = parseInt(countSpan.innerText) + 1;
+            btn.classList.add('text-pink-400');
+        }
+        function repostPost(btn) {
+            const countSpan = btn.querySelector('.repost-count');
+            countSpan.innerText = parseInt(countSpan.innerText) + 1;
+            btn.classList.add('text-green-400');
+        }
+        function quotePost(btn) {
+            const countSpan = btn.querySelector('.quote-count');
+            countSpan.innerText = parseInt(countSpan.innerText) + 1;
+            btn.classList.add('text-blue-400');
+        }
+
+        function openCommentModal() { document.getElementById('commentModal').classList.remove('hidden'); }
+        function closeCommentModal() { document.getElementById('commentModal').classList.add('hidden'); }
+
+        function openEditModal() {
+            document.getElementById('inputName').value = document.getElementById('profileDisplayName').innerText;
+            document.getElementById('inputUser').value = document.getElementById('profileUsername').innerText;
+            const currentBio = document.getElementById('profileBio').innerText;
+            document.getElementById('inputBio').value = currentBio === 'ไบโอของคุณ...' ? '' : currentBio;
+            document.getElementById('editModal').classList.remove('hidden');
+        }
+        function closeEditModal() { document.getElementById('editModal').classList.add('hidden'); }
+        function saveProfile() {
+            const name = document.getElementById('inputName').value.trim();
+            const user = document.getElementById('inputUser').value.trim();
+            const bio = document.getElementById('inputBio').value.trim();
+
+            if (name) {
+                document.getElementById('profileDisplayName').innerText = name;
+                document.getElementById('profileInitial').innerText = name.charAt(0).toUpperCase();
+            }
+            if (user) {
+                document.getElementById('profileUsername').innerText = user.startsWith('@') ? user : '@' + user;
+            }
+            document.getElementById('profileBio').innerText = bio || "";
+            closeEditModal();
         }
     </script>
 </body>
