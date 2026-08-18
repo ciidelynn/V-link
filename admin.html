@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Idol Ecosystem - Admin Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-indigo-950 via-purple-900 to-slate-900 min-h-screen text-white flex justify-center items-center p-4">
+
+    <!-- Smartphone Frame Container -->
+    <div class="w-full max-w-sm bg-slate-900/90 backdrop-blur-2xl border border-pink-500/30 rounded-3xl shadow-2xl overflow-hidden p-6 flex flex-col justify-between min-h-[650px]">
+        
+        <div>
+            <!-- Top Bar -->
+            <div class="flex justify-between items-center mb-6">
+                <button onclick="goBack()" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300 transition">
+                    ← กลับหน้าหลัก
+                </button>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-pink-500/20 text-pink-400 border border-pink-500/30 rounded-full">
+                    Admin Portal
+                </span>
+            </div>
+
+            <!-- Header Title -->
+            <div class="mb-4">
+                <h1 class="text-lg font-bold text-pink-400">🛡️ ระบบจัดการแอดมิน</h1>
+                <p class="text-xs text-slate-400">ควบคุมการเงินธนาคารและตรวจสอบโปรไฟล์ผู้ใช้</p>
+            </div>
+
+            <!-- Navigation Tabs (สลับหน้าจอการทำงาน) -->
+            <div class="grid grid-cols-2 gap-2 mb-5 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
+                <button onclick="switchTab('bank')" id="btnTabBank" class="py-2 text-xs font-semibold rounded-lg bg-pink-600 text-white shadow transition">
+                    💰 ภาพรวมธนาคาร
+                </button>
+                <button onclick="switchTab('profiles')" id="btnTabProfiles" class="py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition">
+                    👤 โปรไฟล์ผู้ใช้
+                </button>
+            </div>
+
+            <!-- SECTION 1: ภาพรวมธนาคารและการทำธุรกรรม -->
+            <div id="sectionBank" class="space-y-4">
+                <!-- ฟอร์มเพิ่ม/ลดเงินผ่านเลขบัญชี 10 หลัก -->
+                <div class="bg-slate-800/50 border border-slate-700/60 p-4 rounded-2xl space-y-3">
+                    <h2 class="text-xs font-bold text-emerald-400">⚡ ทำธุรกรรมการเงิน (เพิ่ม/หักเงิน)</h2>
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">เลขบัญชีธนาคาร (10 หลัก)</label>
+                        <input type="text" id="targetAccountNo" maxlength="10" placeholder="เช่น 1234567890" 
+                            class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-emerald-500 text-white">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">จำนวนเงิน (บาท)</label>
+                            <input type="number" id="targetAmount" placeholder="0" 
+                                class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs focus:outline-none focus:border-emerald-500 text-white">
+                        </div>
+                        <div class="flex items-end space-x-1">
+                            <button onclick="processTransaction('add')" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] py-2 rounded-xl font-bold transition">เพิ่ม</button>
+                            <button onclick="processTransaction('deduct')" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-[10px] py-2 rounded-xl font-bold transition">หัก</button>
+                        </div>
+                    </div>
+                    <p id="txMessage" class="text-[10px] text-center hidden"></p>
+                </div>
+
+                <!-- รายชื่อบัญชีและค่ายทั้งหมด -->
+                <div class="space-y-2">
+                    <h3 class="text-xs font-semibold text-slate-300">รายชื่อบัญชีและยอดเงินในระบบ</h3>
+                    
+                    <!-- ตัวอย่างรายการบัญชี -->
+                    <div class="bg-slate-800/40 border border-slate-700/50 p-3 rounded-xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-white block">LumiStar Entertainment</span>
+                            <span class="text-[10px] text-slate-400">เลขบัญชี: <strong class="text-slate-300">8823410921</strong></span>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-400">500,000 ฿</span>
+                    </div>
+
+                    <div class="bg-slate-800/40 border border-slate-700/50 p-3 rounded-xl flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-white block">SolNight Music</span>
+                            <span class="text-[10px] text-slate-400">เลขบัญชี: <strong class="text-slate-300">9910234512</strong></span>
+                        </div>
+                        <span class="text-xs font-bold text-emerald-400">1,000,000 ฿</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: โปรไฟล์ผู้ใช้รูปแบบนามบัตร (User Profiles & Social Metrics) -->
+            <div id="sectionProfiles" class="space-y-3 hidden overflow-y-auto max-h-[360px] pr-1">
+                <h3 class="text-xs font-semibold text-slate-300">นามบัตรโปรไฟล์และสถิติโซเชียล</h3>
+
+                <!-- นามบัตรโปรไฟล์ที่ 1 -->
+                <div class="bg-slate-800/60 border border-slate-700/70 p-3.5 rounded-2xl space-y-3 shadow-lg">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center font-bold text-sm shadow">
+                            C
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">ciiderydem</h4>
+                            <p class="text-[10px] text-pink-400">Admin / Agency Owner</p>
+                        </div>
+                    </div>
+                    <!-- สถิติผู้ติดตาม 3 แอป -->
+                    <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700/50 text-center">
+                        <div class="bg-slate-900/50 p-1.5 rounded-xl">
+                            <span class="text-[9px] text-slate-400 block">S-link</span>
+                            <span class="text-xs font-bold text-purple-300">12.5K</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-1.5 rounded-xl">
+                            <span class="text-[9px] text-slate-400 block">X-link</span>
+                            <span class="text-xs font-bold text-sky-300">8.2K</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-1.5 rounded-xl">
+                            <span class="text-[9px] text-slate-400 block">U-link</span>
+                            <span class="text-xs font-bold text-rose-300">45.0K</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- นามบัตรโปรไฟล์ที่ 2 -->
+                <div class="bg-slate-800/60 border border-slate-700/70 p-3.5 rounded-2xl space-y-3 shadow-lg">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-600 flex items-center justify-center font-bold text-sm shadow">
+                            L
+                        </div>
+                        <div>
+                            <h4 class="text-xs font-bold text-white">user_lumistar</h4>
+                            <p class="text-[10px] text-purple-400">Agency Manager</p>
+                        </div>
+                    </div>
+                    <!-- สถิติผู้ติดตาม 3 แอป -->
+                    <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700/50 text-center">
+                        <div class="bg-slate-900/50 p-1.5 rounded-xl">
+                            <span class="text-[9px] text-slate-400 block">S-link</span>
+                            <span class="text-xs font-bold text-purple-300">5.1K</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-1.5 rounded-xl">
+                            <span class="text-[9px] text-slate-400 block">X-link</span>
+                            <span class="text-xs font-bold text-sky-300">3.4K</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-1.5 rounded-xl">
+                            <span class="text-[9px] text-slate-400 block">U-link</span>
+                            <span class="text-xs font-bold text-rose-300">10.8K</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-4 pt-3 border-t border-slate-800 text-center">
+            <p class="text-[10px] text-slate-500">ระบบจัดการสูงสุด V-Link Admin</p>
+        </div>
+
+    </div>
+
+    <script>
+        // เช็คสิทธิ์แอดมิน
+        const userRole = localStorage.getItem('userRole');
+        if(userRole !== 'admin') {
+            alert('คุณไม่มีสิทธิ์เข้าถึงหน้านี้!');
+            window.location.href = 'home.html';
+        }
+
+        function goBack() {
+            window.location.href = 'home.html';
+        }
+
+        // ฟังก์ชันสลับแท็บเมนู
+        function switchTab(tab) {
+            const btnBank = document.getElementById('btnTabBank');
+            const btnProfiles = document.getElementById('btnTabProfiles');
+            const sectionBank = document.getElementById('sectionBank');
+            const sectionProfiles = document.getElementById('sectionProfiles');
+
+            if(tab === 'bank') {
+                btnBank.className = "py-2 text-xs font-semibold rounded-lg bg-pink-600 text-white shadow transition";
+                btnProfiles.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition";
+                sectionBank.classList.remove('hidden');
+                sectionProfiles.classList.add('hidden');
+            } else {
+                btnProfiles.className = "py-2 text-xs font-semibold rounded-lg bg-pink-600 text-white shadow transition";
+                btnBank.className = "py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-white transition";
+                sectionProfiles.classList.remove('hidden');
+                sectionBank.classList.add('hidden');
+            }
+        }
+
+        // ระบบตรวจสอบเลขบัญชี 10 หลัก และทำธุรกรรม
+        // ในระบบจริงจะดึงข้อมูลจากฐานข้อมูลมาเทียบเลขบัญชี
+        const validAccounts = ["8823410921", "9910234512"]; // จำลองเลขบัญชีที่มีอยู่จริงในระบบ
+
+        function processTransaction(type) {
+            const accNo = document.getElementById('targetAccountNo').value.trim();
+            const amount = document.getElementById('targetAmount').value;
+            const msgBox = document.getElementById('txMessage');
+
+            msgBox.classList.remove('hidden');
+
+            // เงื่อนไข: เลขบัญชีต้องครบ 10 หลัก และมีอยู่จริงในระบบเท่านั้น
+            if(accNo.length !== 10 || !validAccounts.includes(accNo)) {
+                msgBox.className = "text-[10px] text-center text-rose-400 bg-rose-950/40 p-1.5 rounded-lg border border-rose-800/50";
+                msgBox.innerText = "❌ ไม่พบเลขบัญชีธนาคารนี้ในระบบ (ต้องเป็นเลข 10 หลักที่มีจริง)";
+                return;
+            }
+
+            if(!amount || amount <= 0) {
+                msgBox.className = "text-[10px] text-center text-rose-400 bg-rose-950/40 p-1.5 rounded-lg border border-rose-800/50";
+                msgBox.innerText = "❌ กรุณากรอกจำนวนเงินให้ถูกต้อง";
+                return;
+            }
+
+            // ทำรายการสำเร็จ
+            const actionText = type === 'add' ? 'เพิ่มเงิน' : 'หักเงิน';
+            msgBox.className = "text-[10px] text-center text-emerald-400 bg-emerald-950/40 p-1.5 rounded-lg border border-emerald-800/50";
+            msgBox.innerText = `✅ ทำรายการ${actionText} ${Number(amount).toLocaleString()} บาท สำเร็จ!`;
+        }
+    </script>
+</body>
+</html>
