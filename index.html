@@ -16,7 +16,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCskpROK3OC55EXjDP-ywMiuaOen-fwr2Y",
@@ -55,9 +55,38 @@
 
             // ล็อกอินทั่วไปผ่าน Firebase Auth
             try {
-                await signInWithEmailAndPassword(auth, email, pass);
-                localStorage.setItem('userEmail', email);
+                const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+                const user = userCredential.user;
+
+                // ตรวจสอบและสร้างข้อมูลเริ่มต้นใน Firestore (กรณีบัญซียังไม่มีเอกสารใน users/{email})
+                const userRef = doc(db, "users", user.email);
+                const snap = await getDoc(userRef);
+
+                if (!snap.exists()) {
+                    const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                    const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
+                    await setDoc(userRef, {
+                        userId: newUserId,
+                        accountNumber: newAcc,
+                        balance: 1000000,
+                        email: user.email,
+                        name: user.email.split('@')[0],
+                        user: '@' + user.email.split('@')[0],
+                        bio: 'สวัสดี ฉันเป็นสมาชิกใหม่ของ Virtual Idol Ecosystem',
+                        avatar: '',
+                        realName: '',
+                        nickName: '',
+                        age: '',
+                        birthDate: '',
+                        agency: 'independent',
+                        contacts: []
+                    });
+                }
+
+                // บันทึกค่าลง localStorage ให้ครบถ้วนเพื่อใช้เชื่อมต่อหน้าอื่น
+                localStorage.setItem('userEmail', user.email);
                 localStorage.setItem('userRole', 'user');
+
                 window.location.href = 'home.html';
             } catch (error) {
                 console.error("Login Error:", error);
@@ -76,14 +105,30 @@
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
+                // สร้างข้อมูลโครงสร้างกลางที่รองรับทั้งระบบโปรไฟล์และระบบธนาคารเสมือน
+                const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
+
                 const profileData = {
+                    userId: newUserId,
+                    accountNumber: newAcc,
+                    balance: 1000000,
+                    email: email,
                     name: name,
                     user: '@' + email.split('@')[0],
                     bio: 'สวัสดี ฉันเป็นสมาชิกใหม่ของ Virtual Idol Ecosystem',
-                    avatar: ''
+                    avatar: '',
+                    realName: name,
+                    nickName: '',
+                    age: '',
+                    birthDate: '',
+                    agency: 'independent',
+                    contacts: []
                 };
 
-                await setDoc(doc(db, "users", user.uid), profileData);
+                // บันทึกโดยใช้อีเมลเป็น Document ID เพื่อให้เชื่อมโยงข้ามหน้าได้สมบูรณ์
+                await setDoc(doc(db, "users", email), profileData);
+                
                 localStorage.setItem('xlink_profile', JSON.stringify(profileData));
                 localStorage.setItem('userEmail', email);
                 localStorage.setItem('userRole', 'user');
