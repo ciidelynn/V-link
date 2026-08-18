@@ -93,15 +93,18 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const email = localStorage.getItem('userEmail') || 'ciiderydem@gmail.com';
+        const email = localStorage.getItem('userEmail');
+        if (!email) {
+            alert("กรุณาเข้าสู่ระบบก่อนใช้งาน");
+            window.location.href = 'index.html';
+        }
+
         const userRef = doc(db, "users", email);
 
-        // ค่าตั้งต้น Cloudinary
         const CLOUD_NAME = "bnz9fyns";
         const UPLOAD_PRESET = "V-link";
         let uploadedProfileImgUrl = "";
 
-        // ฟังก์ชันอัปโหลดรูปไป Cloudinary
         document.getElementById('fileInput').addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -148,20 +151,27 @@
                     age: "",
                     birthDate: "",
                     agency: "independent",
-                    profileImg: "https://via.placeholder.com/150"
+                    profileImg: "https://via.placeholder.com/150",
+                    contacts: []
                 };
                 await setDoc(userRef, initialData);
+            } else {
+                const d = snap.data();
+                let updates = {};
+                if (!d.userId) updates.userId = Math.floor(100000 + Math.random() * 900000).toString();
+                if (!d.accountNumber) updates.accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                if (d.balance === undefined) updates.balance = 1000000;
+                
+                if (Object.keys(updates).length > 0) {
+                    await updateDoc(userRef, updates);
+                }
             }
 
-            // ใช้ onSnapshot เพื่อดึงและอัปเดตข้อมูลแบบ Real-time ทันทีที่ข้อมูลเปลี่ยน
             onSnapshot(userRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const d = docSnap.data();
                     document.getElementById('displayName').innerText = email.split('@')[0];
-                    
-                    const userId = d.userId || "------";
-                    document.getElementById('userIdDisplay').innerText = userId;
-
+                    document.getElementById('userIdDisplay').innerText = d.userId || "------";
                     document.getElementById('accNum').innerText = d.accountNumber || "---------";
                     document.getElementById('balance').innerText = (d.balance || 0).toLocaleString() + ' ฿';
                     
