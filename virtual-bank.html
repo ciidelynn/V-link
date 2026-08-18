@@ -101,16 +101,13 @@
     <div id="receiptModal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden flex justify-center items-center p-4 z-50">
         <div class="w-full max-w-sm bg-slate-900 border border-sky-500/30 rounded-[2rem] p-6 space-y-5 shadow-2xl text-center relative overflow-hidden">
             
-            <!-- ไอคอนสำเร็จ -->
             <div class="flex justify-center pt-2">
                 <span class="text-4xl">🎉</span>
             </div>
             <h3 class="text-base font-bold text-emerald-400">โอนเงินสำเร็จ</h3>
 
-            <!-- เส้นประแบ่งส่วน -->
             <div class="border-t border-dashed border-slate-700 my-2"></div>
 
-            <!-- รายละเอียดสลิป -->
             <div class="space-y-2.5 text-left text-xs">
                 <div class="flex justify-between">
                     <span class="text-slate-400">วัน/เวลา:</span>
@@ -138,10 +135,8 @@
                 </div>
             </div>
 
-            <!-- เส้นประแบ่งส่วน -->
             <div class="border-t border-dashed border-slate-700 my-2"></div>
 
-            <!-- ปุ่มกลับหน้าหลัก -->
             <button onclick="closeReceipt()" class="w-full bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-2xl text-xs transition shadow-lg shadow-sky-900/40">
                 กลับหน้าหลัก
             </button>
@@ -150,7 +145,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, collection, query, where, getDocs, runTransaction } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, collection, query, where, getDocs, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyCskpROK3OC55EXjDP-ywMiuaOen-fwr2Y",
@@ -159,13 +154,15 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        const email = localStorage.getItem('userEmail') || 'ciiderydem@gmail.com';
-        const userRef = doc(db, "users", email);
+        const email = localStorage.getItem('userEmail');
+        if (!email) {
+            alert("กรุณาเข้าสู่ระบบก่อนใช้งานระบบธนาคาร");
+            window.location.href = 'index.html';
+        }
 
-        // ตัวแปรเก็บข้อมูลบัญชีตัวเองไว้ใช้บนสลิป
+        const userRef = doc(db, "users", email);
         let myAccountData = {};
 
-        // เปิด-ปิด Modal เพิ่มรายชื่อ
         window.openModal = function() {
             document.getElementById('contactModal').classList.remove('hidden');
         }
@@ -175,13 +172,10 @@
             document.getElementById('modalAcc').value = '';
         }
 
-        // ปิดสลิป
         window.closeReceipt = function() {
             document.getElementById('receiptModal').classList.add('hidden');
-            initAccount();
         }
 
-        // สลับ Tabs
         window.switchTab = function(tabName) {
             const btnTransfer = document.getElementById('btnTransferTab');
             const btnContact = document.getElementById('btnContactTab');
@@ -202,7 +196,6 @@
             }
         }
 
-        // บันทึกรายชื่อลง Firestore
         window.saveContact = async function() {
             const name = document.getElementById('modalName').value.trim();
             const acc = document.getElementById('modalAcc').value.trim();
@@ -223,20 +216,37 @@
             }
         }
 
-        // โหลดข้อมูลบัญชีหลัก
         async function initAccount() {
             const snap = await getDoc(userRef);
-            if (snap.exists()) {
-                myAccountData = snap.data();
-                const shortName = email.split('@')[0];
-                document.getElementById('displayName').innerText = `เจ้าของบัญชี: ${shortName}`;
-                document.getElementById('myAccount').innerText = myAccountData.accountNumber;
-                document.getElementById('myBalance').innerText = (myAccountData.balance || 0).toLocaleString() + ' ฿';
-            } else {
+            if (!snap.exists()) {
                 const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-                await setDoc(userRef, { accountNumber: newAcc, balance: 0, email: email, contacts: [] });
-                location.reload();
+                const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
+                await setDoc(userRef, { 
+                    userId: newUserId,
+                    accountNumber: newAcc, 
+                    balance: 1000000, 
+                    email: email, 
+                    contacts: [] 
+                });
+            } else {
+                const d = snap.data();
+                let updates = {};
+                if (!d.accountNumber) updates.accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                if (!d.userId) updates.userId = Math.floor(100000 + Math.random() * 900000).toString();
+                if (Object.keys(updates).length > 0) {
+                    await updateDoc(userRef, updates);
+                }
             }
+
+            onSnapshot(userRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    myAccountData = docSnap.data();
+                    const shortName = email.split('@')[0];
+                    document.getElementById('displayName').innerText = `เจ้าของบัญชี: ${shortName}`;
+                    document.getElementById('myAccount').innerText = myAccountData.accountNumber || "----------";
+                    document.getElementById('myBalance').innerText = (myAccountData.balance || 0).toLocaleString() + ' ฿';
+                }
+            });
         }
 
         async function loadContacts() {
@@ -265,7 +275,6 @@
             switchTab('transfer');
         }
 
-        // ฟังก์ชันโอนเงินพร้อมแสดงสลิป
         window.executeTransfer = async () => {
             const targetAcc = document.getElementById('targetAcc').value.trim();
             const amount = parseInt(document.getElementById('transferAmount').value);
@@ -288,7 +297,6 @@
 
                 const targetDocRef = querySnapshot.docs[0].ref;
                 const targetEmail = querySnapshot.docs[0].id;
-                const targetData = querySnapshot.docs[0].data();
 
                 if (targetEmail === email) {
                     throw new Error("ไม่สามารถโอนเงินให้บัญชีตัวเองได้");
@@ -305,7 +313,6 @@
                     transaction.update(targetDocRef, { balance: (receiverDoc.data().balance || 0) + amount });
                 });
 
-                // เตรียมข้อมูลแสดงบนสลิป (แปลงปี ค.ศ. เป็น พ.ศ. ตามรูปตัวอย่าง)
                 const now = new Date();
                 const day = String(now.getDate()).padStart(2, '0');
                 const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -320,11 +327,9 @@
                 document.getElementById('receiptReceiverAcc').innerText = targetAcc;
                 document.getElementById('receiptAmount').innerText = `-${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} THB`;
 
-                // เคลียร์ฟอร์มช่องโอน
                 document.getElementById('targetAcc').value = '';
                 document.getElementById('transferAmount').value = '';
 
-                // แสดง Modal สลิป
                 document.getElementById('receiptModal').classList.remove('hidden');
 
             } catch (error) {
