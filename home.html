@@ -6,6 +6,13 @@
     <title>Virtual Idol Ecosystem - Home</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        
+        const SUPABASE_URL = 'https://pjapezytmawescgcbyxd.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_bAQw8ZRxU7djRR3w11vsfQ__ig0uUuX';
+        window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    </script>
     <style>
         body { font-family: 'Prompt', sans-serif; }
         .app-icon { transition: transform 0.2s; }
@@ -15,7 +22,6 @@
 <body class="bg-slate-950 text-white min-h-screen flex justify-center p-4">
     <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl p-8 min-h-[700px] flex flex-col">
         
-        <!-- ส่วนแสดง วันที่ เดือน ปี (ค.ศ.) และสถานะ Realtime -->
         <div class="flex justify-between items-center text-xs text-slate-400 mb-6">
             <span id="realtimeClock" class="font-medium">Loading...</span>
             <span id="roleBadge" class="px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-slate-800 text-slate-300">User</span>
@@ -27,7 +33,6 @@
         </div>
 
         <div class="grid grid-cols-3 gap-y-8 gap-x-4">
-            <!-- S-link -->
             <div class="app-icon flex flex-col items-center cursor-pointer" onclick="openApp('s-link.html')">
                 <div class="w-16 h-16 bg-gradient-to-tr from-amber-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-500/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><line x1="18" y1="6" x2="18.01" y2="6"/></svg>
@@ -35,13 +40,11 @@
                 <span class="text-[11px] mt-2 text-slate-300">S-link</span>
             </div>
 
-            <!-- X-link -->
             <div class="app-icon flex flex-col items-center cursor-pointer" onclick="openApp('x-link.html')">
                 <div class="w-16 h-16 bg-black border border-slate-700 rounded-2xl flex items-center justify-center text-xl font-black">𝕏</div>
                 <span class="text-[11px] mt-2 text-slate-300">X-link</span>
             </div>
 
-            <!-- U-link -->
             <div class="app-icon flex flex-col items-center cursor-pointer" onclick="openApp('u-link.html')">
                 <div class="w-16 h-16 bg-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-600/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
@@ -49,7 +52,6 @@
                 <span class="text-[11px] mt-2 text-slate-300">U-link</span>
             </div>
 
-            <!-- Store -->
             <div class="app-icon flex flex-col items-center cursor-pointer" onclick="openApp('store.html')">
                 <div class="w-16 h-16 bg-emerald-600 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-600/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
@@ -57,7 +59,6 @@
                 <span class="text-[11px] mt-2 text-slate-300">Store</span>
             </div>
 
-            <!-- Bank -->
             <div class="app-icon flex flex-col items-center cursor-pointer" onclick="openApp('virtual-bank.html')">
                 <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-600/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01M17 12h.01M7 12h.01"/></svg>
@@ -65,7 +66,6 @@
                 <span class="text-[11px] mt-2 text-slate-300">Bank</span>
             </div>
 
-            <!-- Profile -->
             <div class="app-icon flex flex-col items-center cursor-pointer" onclick="openApp('profile.html')">
                 <div class="w-16 h-16 bg-orange-500 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -73,7 +73,6 @@
                 <span class="text-[11px] mt-2 text-slate-300">Profile</span>
             </div>
 
-            <!-- Admin -->
             <div id="adminApp" class="hidden app-icon flex-col items-center cursor-pointer" onclick="openApp('admin.html')">
                 <div class="w-16 h-16 bg-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-600/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -81,7 +80,6 @@
                 <span class="text-[11px] mt-2 text-pink-400 font-bold">Admin</span>
             </div>
 
-            <!-- Agency -->
             <div id="agencyApp" class="hidden app-icon flex-col items-center cursor-pointer" onclick="openApp('agency.html')">
                 <div class="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-600/20">
                     <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 10V7a2 2 0 012-2h10a2 2 0 012 2v3M9 21v-5a2 2 0 012-2h2a2 2 0 012 2v5"/></svg>
@@ -91,11 +89,12 @@
         </div>
 
         <div class="mt-auto pt-10 text-center">
-            <button onclick="localStorage.clear(); window.location.href='index.html';" class="text-xs text-slate-500 hover:text-slate-300 underline">ออกจากระบบ</button>
+            <button onclick="logout()" class="text-xs text-slate-500 hover:text-slate-300 underline">ออกจากระบบ</button>
         </div>
     </div>
 
     <script>
+        // นาฬิกา Realtime
         function updateClock() {
             const now = new Date();
             const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
@@ -104,26 +103,65 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        const role = localStorage.getItem('userRole');
-        const email = localStorage.getItem('userEmail');
-        document.getElementById('userDisplay').innerText = email ? email.split('@')[0] : "ผู้ใช้";
+        // โหลดข้อมูลผู้ใช้จาก Supabase และ LocalStorage
+        async function initHome() {
+            const email = localStorage.getItem('userEmail');
+            const role = localStorage.getItem('userRole');
 
-        const badge = document.getElementById('roleBadge');
-        if (role === 'admin') {
-            document.getElementById('adminApp').classList.remove('hidden');
-            document.getElementById('agencyApp').classList.remove('hidden');
-            badge.innerText = "ADMIN";
-            badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-pink-950 text-pink-400 border border-pink-800/50";
-        } else if (role === 'agency') {
-            document.getElementById('agencyApp').classList.remove('hidden');
-            badge.innerText = "AGENCY";
-            badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-purple-950 text-purple-400 border border-purple-800/50";
-        } else {
-            badge.innerText = "USER";
-            badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-slate-800 text-slate-300";
+            if (!email) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // ดึงชื่อโปรไฟล์จาก Supabase ตาราง users
+            setTimeout(async () => {
+                if (window.supabase) {
+                    const { data, error } = await window.supabase
+                        .from('users')
+                        .select('name')
+                        .eq('email', email)
+                        .maybeSingle();
+
+                    if (data && data.name) {
+                        document.getElementById('userDisplay').innerText = data.name;
+                    } else {
+                        document.getElementById('userDisplay').innerText = email.split('@')[0];
+                    }
+                } else {
+                    document.getElementById('userDisplay').innerText = email.split('@')[0];
+                }
+            }, 500);
+
+            // จัดการสิทธิ์การแสดงผลเมนู Admin / Agency
+            const badge = document.getElementById('roleBadge');
+            if (role === 'admin') {
+                document.getElementById('adminApp').classList.remove('hidden');
+                document.getElementById('agencyApp').classList.remove('hidden');
+                badge.innerText = "ADMIN";
+                badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-pink-950 text-pink-400 border border-pink-800/50";
+            } else if (role === 'agency') {
+                document.getElementById('agencyApp').classList.remove('hidden');
+                badge.innerText = "AGENCY";
+                badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-purple-950 text-purple-400 border border-purple-800/50";
+            } else {
+                badge.innerText = "USER";
+                badge.className = "px-2.5 py-1 rounded-full uppercase font-bold text-[10px] bg-slate-800 text-slate-300";
+            }
         }
 
-        function openApp(url) { window.location.href = url; }
+        window.openApp = (url) => { 
+            window.location.href = url; 
+        }
+
+        window.logout = async () => {
+            if (window.supabase) {
+                await window.supabase.auth.signOut();
+            }
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        initHome();
     </script>
 </body>
 </html>
