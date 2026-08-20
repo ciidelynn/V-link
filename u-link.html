@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>U-Link - Pro Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Prompt', sans-serif; } .scrollbar-hide::-webkit-scrollbar { display: none; }</style>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-zinc-900 to-red-950 text-white min-h-screen flex justify-center p-4">
+
+    <div class="w-full max-w-md bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 rounded-[2.5rem] shadow-2xl p-5 flex flex-col min-h-[750px]">
+        <div class="flex justify-between items-center mb-5">
+            <button onclick="window.location.href='home.html'" class="text-xs text-zinc-400">← กลับ</button>
+            <span class="text-[10px] font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">U-LINK PRO</span>
+        </div>
+
+        <div class="flex gap-2 mb-5">
+            <input type="text" id="searchInput" placeholder="ค้นหาคลิป หรือ ศิลปิน..." oninput="renderContent()" class="flex-1 px-4 py-3 bg-zinc-800 rounded-2xl text-xs border border-zinc-700 focus:outline-none focus:border-red-500">
+            <button onclick="renderContent()" class="bg-red-600 px-4 rounded-2xl text-xs font-bold">ค้นหา</button>
+        </div>
+
+        <div class="flex gap-2 mb-5">
+            <button onclick="switchView('feed')" id="tabFeed" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-zinc-800">🏠 ฟีด</button>
+            <button onclick="switchView('myChannel')" id="tabMy" class="flex-1 py-2.5 rounded-xl text-xs font-bold bg-zinc-800">👤 ช่องของฉัน</button>
+        </div>
+
+        <div id="mainContent" class="flex-1 overflow-y-auto scrollbar-hide space-y-4"></div>
+    </div>
+
+    <!-- Edit Name Popup -->
+    <div id="namePopup" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-zinc-800 p-6 rounded-3xl w-full max-w-xs text-center border border-zinc-700 shadow-2xl">
+            <h3 class="text-sm font-bold mb-4">✨ ตั้งชื่อช่องของคุณ</h3>
+            <input type="text" id="newNameInput" placeholder="พิมพ์ชื่อช่อง..." class="w-full px-4 py-3 bg-zinc-950 rounded-2xl text-xs mb-4 border border-zinc-700 outline-none focus:border-red-500">
+            <div class="flex gap-2">
+                <button onclick="closePopup()" class="flex-1 py-2 bg-zinc-700 rounded-xl text-xs">ยกเลิก</button>
+                <button onclick="saveChannelName()" class="flex-1 py-2 bg-red-600 rounded-xl text-xs font-bold">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, arrayUnion, arrayRemove, addDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const db = getFirestore(initializeApp({ projectId: "v-link-5d0c8" }));
+        const email = localStorage.getItem('userEmail');
+        let allVideos = [];
+        let userData = { channelName: email.split('@')[0], following: [], subs: 0, lastClaimedViews: 0 };
+        let currentView = 'feed';
+        let currentPlayingVideo = null;
+        let unsubscribeComments = null;
+
+        async function init() {
+            const userRef = doc(db, "users", email);
+            onSnapshot(userRef, (snap) => { 
+                if(snap.exists()) {
+                    userData = snap.data();
+                    if(currentView === 'myChannel') renderContent();
+                } else {
+                    setDoc(userRef, { channelName: userData.channelName, following: [], subs: 0, lastClaimedViews: 0 });
+                }
+            });
+            onSnapshot(collection(db, "ulink_videos"), (snap) => {
+                allVideos = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                renderContent();
+            });
+        }
+
+        window.playVideo = (v) => {
+            currentPlayingVideo = v;
+            const commentsRef = collection(db, "ulink_videos", v.id, "comments");
+            if (unsubscribeComments) unsubscribeComments();
+            unsubscribeComments = onSnapshot(query(commentsRef, orderBy("createdAt", "desc")), (snap) => {
+                document.getElementById('commentList').innerHTML = snap.docs.map(doc => {
+                    const c = doc.data();
+                    return c.isSuperChat ? `
+                        <div class="bg-gradient-to-r from-amber-900 to-yellow-900 p-3 rounded-2xl border border-yellow-500 mb-2">
+                            <div class="flex justify-between text-[10px] text-yellow-300 font-bold mb-1">
+                                <span>${c.creatorName}</span>
+                                <span>💰 ฿${c.amount}</span>
+                            </div>
+                            <p class="text-[11px] text-white">${c.text}</p>
+                        </div>` : `
+                        <div class="bg-zinc-800 p-3 rounded-2xl mb-2">
+                            <p class="text-[9px] font-bold text-red-400">${c.creatorName}</p>
+                            <p class="text-[10px] text-zinc-300">${c.text}</p>
+                        </div>`;
+                }).join('');
+            });
+            renderVideoView();
+        };
+
+        window.renderVideoView = () => {
+            const v = currentPlayingVideo;
+            const isLiked = v.likes?.includes(email);
+            document.getElementById('mainContent').innerHTML = `
+                <button onclick="currentPlayingVideo=null; if(unsubscribeComments) unsubscribeComments(); renderContent();" class="text-xs text-zinc-400 mb-2">← ย้อนกลับ</button>
+                <div class="aspect-video w-full bg-black rounded-2xl overflow-hidden mb-4"><iframe class="w-full h-full" src="https://www.youtube.com/embed/${v.videoId}?autoplay=1" allowfullscreen></iframe></div>
+                <h2 class="text-sm font-bold mb-4">${v.title}</h2>
+                <button onclick="toggleLike('${v.id}')" class="w-full py-2 mb-4 rounded-xl text-xs font-bold ${isLiked ? 'bg-red-600' : 'bg-zinc-800'}">👍 Like (${v.likes?.length || 0})</button>
+                
+                <div class="bg-zinc-800 p-4 rounded-2xl mb-4 border border-zinc-700">
+                    <p class="text-[10px] text-yellow-500 font-bold mb-2">🎁 ส่ง Super Chat</p>
+                    <input type="number" id="amtInput" placeholder="ระบุจำนวนเงิน (฿)" class="w-full bg-zinc-950 p-2 rounded-xl text-[10px] mb-2">
+                    <textarea id="msgInput" placeholder="ข้อความ..." class="w-full bg-zinc-950 p-2 rounded-xl text-[10px] mb-2"></textarea>
+                    <button onclick="postSuperChat('${v.id}')" class="w-full bg-yellow-600 py-2 rounded-xl text-[10px] font-bold">ส่ง Super Chat</button>
+                </div>
+
+                <div id="commentList" class="max-h-60 overflow-y-auto scrollbar-hide"></div>
+                <div class="flex gap-2 mt-2">
+                    <input id="commentInput" class="flex-1 bg-zinc-800 p-2 rounded-xl text-[10px]" placeholder="แสดงความคิดเห็น...">
+                    <button onclick="postComment('${v.id}')" class="bg-red-600 px-4 rounded-xl text-[10px]">ส่ง</button>
+                </div>`;
+        };
+
+        window.postSuperChat = async (id) => {
+            const amount = document.getElementById('amtInput').value;
+            const text = document.getElementById('msgInput').value;
+            if(!amount || !text) return;
+            await addDoc(collection(db, "ulink_videos", id, "comments"), {text, amount, creatorName: userData.channelName, isSuperChat: true, createdAt: Date.now()});
+        };
+
+        window.postComment = async (id) => {
+            const text = document.getElementById('commentInput').value;
+            if(!text) return;
+            await addDoc(collection(db, "ulink_videos", id, "comments"), {text, creatorName: userData.channelName, isSuperChat: false, createdAt: Date.now()});
+        };
+
+        window.toggleLike = async (id) => {
+            const ref = doc(db, "ulink_videos", id);
+            const snap = await getDoc(ref);
+            const likes = snap.data().likes || [];
+            likes.includes(email) ? await updateDoc(ref, {likes: arrayRemove(email)}) : await updateDoc(ref, {likes: arrayUnion(email)});
+        };
+
+        window.claimEarnings = async () => {
+            const myVideos = allVideos.filter(v => v.creator === email);
+            const totalViews = myVideos.reduce((sum, v) => sum + (v.views || 1500), 0); // สมมติฐานตัวอย่างวิว หรือดึงจาก v.views จริง
+            await updateDoc(doc(db, "users", email), { lastClaimedViews: totalViews });
+            alert("✨ กดรับเงินเข้าธนาคารสำเร็จ!");
+        };
+
+        window.switchView = (v) => { currentView = v; renderContent(); };
+        window.openPopup = () => document.getElementById('namePopup').classList.remove('hidden');
+        window.closePopup = () => document.getElementById('namePopup').classList.add('hidden');
+        window.saveChannelName = async () => {
+            const val = document.getElementById('newNameInput').value;
+            if(val) { await updateDoc(doc(db, "users", email), { channelName: val }); userData.channelName = val; closePopup(); renderContent(); }
+        };
+
+        window.renderContent = () => {
+            if (currentPlayingVideo) { renderVideoView(); return; }
+            const container = document.getElementById('mainContent');
+            if (currentView === 'feed') {
+                container.innerHTML = allVideos.map(v => `
+                    <div onclick='playVideo(${JSON.stringify(v)})' class="bg-zinc-800/50 p-3 rounded-2xl flex gap-3 border border-zinc-700 cursor-pointer">
+                        <img src="https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg" class="w-24 h-16 rounded-lg object-cover">
+                        <div class="flex-1"><p class="text-xs font-bold">${v.title}</p><p class="text-[10px] text-zinc-400">${v.creatorName}</p></div>
+                    </div>`).join('');
+            } else {
+                // คำนวณยอดวิวและรายได้ของฉัน
+                const myVideos = allVideos.filter(v => v.creator === email);
+                const totalViews = myVideos.reduce((sum, v) => sum + (v.views || 2500), 0); // จำลองยอดวิวสะสมต่อคลิป
+                const lastClaimed = userData.lastClaimedViews || 0;
+                const unclaimedViews = Math.max(0, totalViews - lastClaimed);
+                const earnedMoney = (unclaimedViews / 1000).toFixed(2); // 1,000 วิว = 1 บาท
+
+                container.innerHTML = `
+                    <div class="text-center bg-zinc-800 p-5 rounded-3xl mb-4 border border-zinc-700">
+                        <h2 class="text-xl font-bold">${userData.channelName}</h2>
+                        <p class="text-[10px] text-zinc-400 mt-1">0 ผู้ติดตาม</p>
+                        <button onclick="openPopup()" class="mt-3 text-[9px] bg-zinc-700 px-4 py-1 rounded-full">✏️ แก้ไขชื่อช่อง</button>
+                    </div>
+
+                    <div class="bg-gradient-to-br from-zinc-800 to-zinc-900 p-5 rounded-3xl border border-zinc-700 shadow-xl space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-zinc-300">📊 สถิติและรายได้ช่อง</span>
+                            <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20">1,000 วิว = 1 ฿</span>
+                        </div>
+                        <div class="flex justify-between text-xs py-2 border-y border-zinc-700/50">
+                            <span class="text-zinc-400">ยอดวิวที่ยังไม่เคลียร์</span>
+                            <span class="font-bold text-white">${unclaimedViews.toLocaleString()} วิว</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-zinc-400">รายได้สะสม</span>
+                            <span class="text-base font-extrabold text-emerald-400">฿${earnedMoney}</span>
+                        </div>
+                        <button onclick="claimEarnings()" class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-xs font-bold transition shadow-lg shadow-emerald-900/20">
+                            💸 กดรับเงินเข้าธนาคาร
+                        </button>
+                    </div>`;
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>
