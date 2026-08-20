@@ -8,110 +8,94 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style> body { font-family: 'Prompt', sans-serif; } .scrollbar-hide::-webkit-scrollbar { display: none; }</style>
 </head>
-<body class="bg-slate-950 text-white min-h-screen flex justify-center p-4">
+<body class="bg-gradient-to-br from-slate-950 via-zinc-900 to-red-950 text-white min-h-screen flex justify-center p-4">
 
-    <div class="w-full max-w-md bg-zinc-900 rounded-[2rem] shadow-2xl overflow-hidden p-5 flex flex-col min-h-[750px] border border-zinc-800">
+    <!-- Container -->
+    <div class="w-full max-w-md bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 rounded-[2rem] shadow-2xl p-5 flex flex-col min-h-[750px]">
         
-        <!-- Header & Search -->
-        <div class="space-y-4 mb-5">
-            <div class="flex justify-between items-center">
-                <button onclick="window.location.href='home.html'" class="text-xs text-zinc-400 hover:text-white">← กลับ</button>
-                <span class="text-[10px] font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">U-LINK PRO</span>
-            </div>
-            <input type="text" id="searchInput" placeholder="🔍 ค้นหาคลิป หรือ ศิลปิน..." oninput="renderContent()" class="w-full px-4 py-3 bg-zinc-800 rounded-2xl text-xs focus:outline-none focus:ring-1 focus:ring-red-500">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-5">
+            <button onclick="window.location.href='home.html'" class="text-xs text-zinc-400">← กลับ</button>
+            <span class="text-[10px] font-bold text-red-500 bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">U-LINK PRO</span>
         </div>
 
-        <!-- Main Navigation Tabs -->
+        <!-- Search Box -->
+        <div class="flex gap-2 mb-5">
+            <input type="text" id="searchInput" placeholder="ค้นหาคลิป หรือ ศิลปิน..." class="flex-1 px-4 py-3 bg-zinc-800 rounded-2xl text-xs border border-zinc-700 focus:outline-none focus:border-red-500">
+            <button onclick="renderContent()" class="bg-red-600 px-4 rounded-2xl text-xs font-bold">ค้นหา</button>
+        </div>
+
+        <!-- Tabs -->
         <div class="flex gap-2 mb-5">
             <button onclick="switchView('feed')" id="tabFeed" class="flex-1 py-2 rounded-xl text-xs font-bold bg-zinc-800">🏠 ฟีด</button>
             <button onclick="switchView('myChannel')" id="tabMy" class="flex-1 py-2 rounded-xl text-xs font-bold bg-red-600">👤 ช่องของฉัน</button>
         </div>
 
-        <!-- Content Area -->
-        <div id="mainContent" class="flex-1 overflow-y-auto scrollbar-hide space-y-4">
-            <!-- ข้อมูลจะถูก render ที่นี่ -->
+        <div id="mainContent" class="flex-1 overflow-y-auto scrollbar-hide"></div>
+    </div>
+
+    <!-- Custom Popup สำหรับเปลี่ยนชื่อช่อง -->
+    <div id="namePopup" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-zinc-800 p-6 rounded-3xl w-full max-w-xs text-center border border-zinc-700 shadow-2xl">
+            <h3 class="text-sm font-bold mb-4">✨ ตั้งชื่อช่องของคุณ</h3>
+            <input type="text" id="newNameInput" placeholder="พิมพ์ชื่อช่องที่นี่..." class="w-full px-4 py-3 bg-zinc-900 rounded-2xl text-xs mb-4 border border-zinc-700 focus:border-red-500 outline-none">
+            <div class="flex gap-2">
+                <button onclick="closePopup()" class="flex-1 py-2 bg-zinc-700 rounded-xl text-xs">ยกเลิก</button>
+                <button onclick="saveChannelName()" class="flex-1 py-2 bg-red-600 rounded-xl text-xs font-bold">ตกลง</button>
+            </div>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, updateDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Firebase Config
-        const app = initializeApp({ projectId: "v-link-5d0c8" });
-        const db = getFirestore(app);
+        const db = getFirestore(initializeApp({ projectId: "v-link-5d0c8" }));
         const email = localStorage.getItem('userEmail');
-        
-        let allVideos = [];
-        let currentView = 'myChannel';
-        let subView = 'video'; // video, playlist, me
+        let channelName = localStorage.getItem('channelName') || email.split('@')[0];
 
-        // โหลดข้อมูลเริ่มต้น
-        async function init() {
-            const userSnap = await getDoc(doc(db, "users", email));
-            if(!userSnap.exists()) await setDoc(doc(db, "users", email), { channelName: email.split('@')[0], subs: 150 });
-            
-            onSnapshot(collection(db, "ulink_videos"), (snap) => {
-                allVideos = snap.docs.map(d => ({id: d.id, ...d.data()}));
-                renderContent();
-            });
+        // ตั้งค่าเริ่มต้นผู้ติดตามเป็น 0
+        async function checkUser() {
+            const userRef = doc(db, "users", email);
+            const snap = await getDoc(userRef);
+            if (!snap.exists()) {
+                await setDoc(userRef, { channelName: channelName, subscribers: 0 });
+            }
+            renderContent();
         }
 
-        window.switchView = (view) => {
-            currentView = view;
-            renderContent();
-        };
-
-        window.setSubView = (sv) => {
-            subView = sv;
-            renderContent();
-        };
-
-        window.renderContent = () => {
-            const container = document.getElementById('mainContent');
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
-            
-            if (currentView === 'feed') {
-                const filtered = allVideos.filter(v => v.title.toLowerCase().includes(keyword));
-                container.innerHTML = filtered.map(v => `
-                    <div class="bg-zinc-800 p-3 rounded-2xl flex gap-3">
-                        <img src="https://img.youtube.com/vi/${v.videoId}/mqdefault.jpg" class="w-24 rounded-lg">
-                        <div>
-                            <p class="text-xs font-bold truncate w-32">${v.title}</p>
-                            <p class="text-[10px] text-zinc-400">${v.creatorName}</p>
-                            <button class="mt-2 text-[10px] bg-zinc-700 px-2 py-1 rounded-md">ติดตาม</button>
-                        </div>
-                    </div>
-                `).join('');
-            } else {
-                // หน้าช่องของฉัน
-                container.innerHTML = `
-                    <div class="text-center mb-6">
-                        <h2 class="text-xl font-bold">${localStorage.getItem('channelName') || email.split('@')[0]}</h2>
-                        <div class="flex justify-center gap-4 mt-2 text-xs text-zinc-400">
-                            <span>150 ติดตาม</span>
-                            <span onclick="prompt('เปลี่ยนชื่อช่อง:', '')" class="cursor-pointer text-red-400">✏️ แก้ไขชื่อ</span>
-                        </div>
-                    </div>
-                    <div class="flex gap-2 mb-4 bg-zinc-800 p-1 rounded-xl">
-                        <button onclick="setSubView('video')" class="flex-1 py-1 rounded-lg text-[10px] ${subView=='video'?'bg-zinc-700':''}">Video</button>
-                        <button onclick="setSubView('playlist')" class="flex-1 py-1 rounded-lg text-[10px] ${subView=='playlist'?'bg-zinc-700':''}">Playlist</button>
-                        <button onclick="setSubView('me')" class="flex-1 py-1 rounded-lg text-[10px] ${subView=='me'?'bg-zinc-700':''}">Me</button>
-                    </div>
-                    <div id="subViewContent"></div>
-                `;
-                renderSubView();
+        window.openPopup = () => document.getElementById('namePopup').classList.remove('hidden');
+        window.closePopup = () => document.getElementById('namePopup').classList.add('hidden');
+        window.saveChannelName = async () => {
+            const newName = document.getElementById('newNameInput').value;
+            if (newName) {
+                channelName = newName;
+                localStorage.setItem('channelName', newName);
+                await updateDoc(doc(db, "users", email), { channelName: newName });
+                closePopup();
+                renderContent();
             }
         };
 
-        function renderSubView() {
-            const content = document.getElementById('subViewContent');
-            if (subView === 'video') content.innerHTML = `<p class="text-xs text-center">รวมวิดีโอของคุณ (${allVideos.filter(v=>v.creator===email).length})</p>`;
-            if (subView === 'playlist') content.innerHTML = `<p class="text-xs text-center">ยังไม่มีเพลย์ลิสต์สาธารณะ</p>`;
-            if (subView === 'me') content.innerHTML = `<p class="text-xs text-center text-zinc-500">โหมดส่วนตัว: วิดีโอที่คุณถูกใจอยู่ที่นี่</p>`;
-        }
+        window.renderContent = (view = 'myChannel') => {
+            const container = document.getElementById('mainContent');
+            if (view === 'myChannel') {
+                container.innerHTML = `
+                    <div class="text-center bg-zinc-800/50 p-6 rounded-3xl border border-zinc-700">
+                        <h2 class="text-2xl font-bold">${channelName}</h2>
+                        <p class="text-xs text-zinc-400 mt-1">ผู้ติดตาม 0 คน</p>
+                        <button onclick="openPopup()" class="mt-4 text-[10px] bg-zinc-700 px-4 py-1.5 rounded-full border border-zinc-600">✏️ แก้ไขชื่อช่อง</button>
+                    </div>
+                    <div class="flex gap-2 mt-6 mb-4">
+                        <button class="flex-1 py-2 bg-zinc-800 rounded-xl text-[10px]">Video</button>
+                        <button class="flex-1 py-2 bg-zinc-800 rounded-xl text-[10px]">Playlist</button>
+                        <button class="flex-1 py-2 bg-zinc-800 rounded-xl text-[10px]">Me</button>
+                    </div>
+                `;
+            }
+        };
 
-        init();
+        checkUser();
     </script>
 </body>
 </html>
