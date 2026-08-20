@@ -30,6 +30,7 @@
         <div id="mainContent" class="flex-1 overflow-y-auto scrollbar-hide space-y-4"></div>
     </div>
 
+    <!-- ป๊อปอัปตั้งชื่อช่อง -->
     <div id="namePopup" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 p-4">
         <div class="bg-zinc-800 p-6 rounded-3xl w-full max-w-xs text-center border border-zinc-700 shadow-2xl">
             <h3 class="text-sm font-bold mb-4">✨ ตั้งชื่อช่องของคุณ</h3>
@@ -41,6 +42,7 @@
         </div>
     </div>
 
+    <!-- ป๊อปอัปสโตร์ร้านค้า -->
     <div id="storeModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4">
         <div class="bg-zinc-900 border border-zinc-800 w-full max-w-xs rounded-3xl p-6 space-y-4 shadow-2xl">
             <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
@@ -258,7 +260,7 @@
         window.closeStoreModal = () => document.getElementById('storeModal').classList.add('hidden');
 
         window.buyFollowersU = async (amount) => {
-            let currentFollowers = userData.followers_u || [];
+            let currentFollowers = Array.isArray(userData.followers_u) ? userData.followers_u : [];
             
             for (let i = 0; i < amount; i++) {
                 const randomBot = botStoreNames[Math.floor(Math.random() * botStoreNames.length)];
@@ -294,7 +296,9 @@
                 const lastClaimed = userData.lastClaimedViews || 0;
                 const unclaimedViews = Math.max(0, totalViews - lastClaimed);
                 const earnedMoney = (unclaimedViews / 1000).toFixed(2);
-                const totalFollowersCount = userData.followers_u ? userData.followers_u.length : 0;
+                
+                const followers = Array.isArray(userData.followers_u) ? userData.followers_u : [];
+                const totalFollowersCount = followers.length;
 
                 container.innerHTML = `
                     <div class="text-center bg-zinc-800 p-5 rounded-3xl mb-4 border border-zinc-700">
