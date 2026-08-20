@@ -64,7 +64,6 @@
     </div>
 
     <script>
-        // กำหนดค่าการเชื่อมต่อ Supabase
         const SUPABASE_URL = 'https://pjapezytmawescgcbyxd.supabase.co';
         const SUPABASE_KEY = 'sb_publishable_bAQw8ZRxU7djRR3w11vsfQ__ig0uUuX';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -74,7 +73,6 @@
         let userData = { channelName: email.split('@')[0], followers_u: [], lastClaimedViews: 0 };
         let currentView = 'feed';
         let currentPlayingVideo = null;
-        let unsubscribeComments = null;
 
         const botStoreNames = [
             { name: "บอทซิ่ง", user: "@bot_sing" }, { name: "แฟนคลับตัวยง", user: "@fan_pro" }, 
@@ -86,7 +84,6 @@
         });
 
         async function init() {
-            // โหลดข้อมูลผู้ใช้จาก Supabase ตาราง users
             let { data: userDoc, error } = await supabaseClient.from("users").select("*").eq("user", email).single();
             if (!userDoc) {
                 await supabaseClient.from("users").insert([{
@@ -101,10 +98,8 @@
                 if(!userData.channelName) userData.channelName = email.split('@')[0];
             }
 
-            // โหลดวิดีโอเริ่มต้น
             fetchVideos();
 
-            // Realtime ฟังการเปลี่ยนแปลงตาราง users ของเราเอง
             supabaseClient.channel('public:users')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `user=eq.${email}` }, payload => {
                     if (payload.new) {
@@ -114,7 +109,6 @@
                 })
                 .subscribe();
 
-            // Realtime ฟังการเปลี่ยนแปลงตาราง ulink_videos
             supabaseClient.channel('public:ulink_videos')
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'ulink_videos' }, payload => {
                     fetchVideos();
@@ -260,7 +254,6 @@
             }
         };
 
-        // ฟังก์ชันระบบร้านค้า Followers_u
         window.openStoreModal = () => document.getElementById('storeModal').classList.remove('hidden');
         window.closeStoreModal = () => document.getElementById('storeModal').classList.add('hidden');
 
@@ -307,8 +300,7 @@
                     <div class="text-center bg-zinc-800 p-5 rounded-3xl mb-4 border border-zinc-700">
                         <h2 class="text-xl font-bold">${userData.channelName || email.split('@')[0]}</h2>
                         <div class="flex justify-center items-center gap-2 mt-1">
-                            <p class="text-[11px] text-red-400 font-bold">${totalFollowersCount} ผู้ติดตาม (Followers_u)</p>
-                            <button onclick="openStoreModal()" class="text-[9px] bg-red-600 hover:bg-red-500 px-2.5 py-1 rounded-lg font-bold text-white transition">🛒 ซื้อเพิ่ม</button>
+                            <p class="text-[11px] text-red-400 font-bold">${totalFollowersCount} ผู้ติดตาม</p>
                         </div>
                         <button onclick="openPopup()" class="mt-3 text-[9px] bg-zinc-700 px-4 py-1 rounded-full text-zinc-300">✏️ แก้ไขชื่อช่อง</button>
                     </div>
