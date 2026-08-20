@@ -129,18 +129,17 @@
         });
 
         async function initProfile() {
-            // ดึงข้อมูลผู้ใช้จากตาราง users โดยใช้อีเมลเป็น ID
+            // ดึงข้อมูลผู้ใช้จากตาราง users โดยใช้ email เป็นตัวค้นหาหลัก
             let { data: d, error } = await supabase
                 .from('users')
                 .select('*')
-                .eq('id', email)
-                .single();
+                .eq('email', email)
+                .maybeSingle();
 
             if (!d) {
                 const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
                 const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
                 const initialData = {
-                    id: email,
                     userId: newUserId,
                     accountNumber: newAcc,
                     balance: 1000000,
@@ -165,7 +164,7 @@
                 if (d.balance === undefined) updates.balance = 1000000;
 
                 if (Object.keys(updates).length > 0) {
-                    await supabase.from('users').update(updates).eq('id', email);
+                    await supabase.from('users').update(updates).eq('email', email);
                     Object.assign(d, updates);
                 }
             }
@@ -207,7 +206,7 @@
                         agency,
                         profileImg: uploadedProfileImgUrl || "https://via.placeholder.com/150"
                     })
-                    .eq('id', email);
+                    .eq('email', email);
 
                 if (error) throw error;
                 alert("บันทึกข้อมูลส่วนตัวเรียบร้อยแล้ว!");
