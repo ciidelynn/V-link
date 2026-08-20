@@ -29,7 +29,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const db = getFirestore(initializeApp({ projectId: "v-link-5d0c8" }));
         const email = localStorage.getItem('userEmail');
@@ -50,11 +50,11 @@
             if (view === 'social') {
                 const tabs = ['S-link', 'X-link', 'U-link'];
                 const options = [
-                    { label: 'ซื้อแฟนคลับ 1 คน', count: 1, price: 100 },
-                    { label: 'ซื้อแฟนคลับ 10 คน (1k)', count: 10, price: 1000 },
-                    { label: 'ซื้อแฟนคลับ 100 คน (10k)', count: 100, price: 10000 },
-                    { label: 'ซื้อแฟนคลับ 1,000 คน (100k)', count: 1000, price: 100000 },
-                    { label: 'ซื้อแฟนคลับ 10,000 คน (1M)', count: 10000, price: 1000000 }
+                    { label: 'ซื้อ Followers 1 คน', count: 1, price: 100 },
+                    { label: 'ซื้อ Followers 10 คน (1k)', count: 10, price: 1000 },
+                    { label: 'ซื้อ Followers 100 คน (10k)', count: 100, price: 10000 },
+                    { label: 'ซื้อ Followers 1,000 คน (100k)', count: 1000, price: 100000 },
+                    { label: 'ซื้อ Followers 10,000 คน (1M)', count: 10000, price: 1000000 }
                 ];
 
                 container.innerHTML = `
@@ -92,11 +92,17 @@
             // หักเงินจากธนาคาร
             await updateDoc(doc(db, "users", email), { balance: increment(-price) });
             
-            // เพิ่มแฟนคลับใน Firebase (ใช้ field: s_fans, x_fans, u_fans)
-            const fieldName = `${target.split('-')[0].toLowerCase()}_fans`;
-            const updateObj = {};
-            updateObj[fieldName] = increment(count);
-            await updateDoc(doc(db, "users", email), updateObj);
+            // สร้างรายชื่ออีเมลจำลอง followers เพิ่มเข้าใน Array followers
+            let fakeFollowers = [];
+            const timestamp = Date.now();
+            for(let i = 1; i <= count; i++) {
+                fakeFollowers.push(`follower_${timestamp}_${i}@store.system`);
+            }
+
+            // อัปเดตข้อมูลลง Firebase (ใช้ field 'followers' ตามหน้า s-link.html)
+            await updateDoc(doc(db, "users", email), {
+                followers: arrayUnion(...fakeFollowers)
+            });
             
             alert(`ซื้อ ${count} คนสำเร็จ!`);
         };
