@@ -129,7 +129,6 @@
         });
 
         async function initProfile() {
-            // ดึงข้อมูลผู้ใช้จากตาราง users โดยใช้ email เป็นตัวค้นหาหลัก
             let { data: d, error } = await supabase
                 .from('users')
                 .select('*')
@@ -140,27 +139,26 @@
                 const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
                 const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
                 const initialData = {
-                    userId: newUserId,
-                    accountNumber: newAcc,
+                    userid: newUserId,
+                    accountnumber: newAcc,
                     balance: 1000000,
                     email: email,
                     name: email.split('@')[0],
-                    user: '@' + email.split('@')[0],
                     bio: 'สวัสดี ฉันเป็นสมาชิกใหม่ของ Virtual Idol Ecosystem',
-                    realName: "",
-                    nickName: "",
+                    realname: "",
+                    nickname: "",
                     age: null,
-                    birthDate: null,
+                    birthdate: null,
                     agency: "independent",
-                    profileImg: "https://via.placeholder.com/150",
+                    profileimg: "https://via.placeholder.com/150",
                     contacts: []
                 };
                 await supabase.from('users').insert([initialData]);
                 d = initialData;
             } else {
                 let updates = {};
-                if (!d.userId) updates.userId = Math.floor(100000 + Math.random() * 900000).toString();
-                if (!d.accountNumber) updates.accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                if (!d.userid) updates.userid = Math.floor(100000 + Math.random() * 900000).toString();
+                if (!d.accountnumber) updates.accountnumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
                 if (d.balance === undefined) updates.balance = 1000000;
 
                 if (Object.keys(updates).length > 0) {
@@ -169,42 +167,42 @@
                 }
             }
 
-            // แสดงผลข้อมูลลงในหน้า HTML
+            // แสดงผลข้อมูลลงในหน้า HTML (ปรับให้ตรงกับคอลัมน์ตัวพิมพ์เล็กใน Supabase)
             document.getElementById('displayName').innerText = d.name || email.split('@')[0];
-            document.getElementById('userIdDisplay').innerText = d.userId || "------";
-            document.getElementById('accNum').innerText = d.accountNumber || "---------";
+            document.getElementById('userIdDisplay').innerText = d.userid || "------";
+            document.getElementById('accNum').innerText = d.accountnumber || "---------";
             document.getElementById('balance').innerText = (d.balance || 0).toLocaleString() + ' ฿';
             
-            document.getElementById('realName').value = d.realName || "";
-            document.getElementById('nickName').value = d.nickName || "";
+            document.getElementById('realName').value = d.realname || "";
+            document.getElementById('nickName').value = d.nickname || "";
             document.getElementById('age').value = d.age || "";
-            document.getElementById('birthDate').value = d.birthDate || "";
+            document.getElementById('birthDate').value = d.birthdate || "";
             document.getElementById('agencySelect').value = d.agency || "independent";
             
-            if(d.profileImg) {
-                uploadedProfileImgUrl = d.profileImg;
-                document.getElementById('profileImg').src = d.profileImg;
+            if(d.profileimg) {
+                uploadedProfileImgUrl = d.profileimg;
+                document.getElementById('profileImg').src = d.profileimg;
             }
         }
 
         window.saveProfile = async () => {
-            const realName = document.getElementById('realName').value;
-            const nickName = document.getElementById('nickName').value;
+            const realname = document.getElementById('realName').value;
+            const nickname = document.getElementById('nickName').value;
             const ageVal = document.getElementById('age').value;
             const age = ageVal ? parseInt(ageVal) : null;
-            const birthDate = document.getElementById('birthDate').value || null;
+            const birthdate = document.getElementById('birthDate').value || null;
             const agency = document.getElementById('agencySelect').value;
 
             try {
                 const { error } = await supabase
                     .from('users')
                     .update({
-                        realName,
-                        nickName,
+                        realname,
+                        nickname,
                         age,
-                        birthDate,
+                        birthdate,
                         agency,
-                        profileImg: uploadedProfileImgUrl || "https://via.placeholder.com/150"
+                        profileimg: uploadedProfileImgUrl || "https://via.placeholder.com/150"
                     })
                     .eq('email', email);
 
