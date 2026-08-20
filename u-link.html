@@ -7,7 +7,15 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style> body { font-family: 'Prompt', sans-serif; } .scrollbar-hide::-webkit-scrollbar { display: none; }</style>
+    <style> 
+        body { font-family: 'Prompt', sans-serif; } 
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        @keyframes popUp {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: popUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    </style>
 </head>
 <body class="bg-gradient-to-br from-slate-950 via-zinc-900 to-red-950 text-white min-h-screen flex justify-center p-4">
 
@@ -32,7 +40,7 @@
 
     <!-- ป๊อปอัปตั้งชื่อช่อง -->
     <div id="namePopup" class="fixed inset-0 bg-black/60 hidden flex justify-center items-center z-50 p-4">
-        <div class="bg-zinc-800 p-6 rounded-3xl w-full max-w-xs text-center border border-zinc-700 shadow-2xl">
+        <div class="bg-zinc-800 p-6 rounded-3xl w-full max-w-xs text-center border border-zinc-700 shadow-2xl animate-pop">
             <h3 class="text-sm font-bold mb-4">✨ ตั้งชื่อช่องของคุณ</h3>
             <input type="text" id="newNameInput" placeholder="พิมพ์ชื่อช่อง..." class="w-full px-4 py-3 bg-zinc-950 rounded-2xl text-xs mb-4 border border-zinc-700 outline-none focus:border-red-500">
             <div class="flex gap-2">
@@ -44,7 +52,7 @@
 
     <!-- ป๊อปอัปสโตร์ร้านค้า -->
     <div id="storeModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4">
-        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-xs rounded-3xl p-6 space-y-4 shadow-2xl">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-xs rounded-3xl p-6 space-y-4 shadow-2xl animate-pop">
             <div class="flex justify-between items-center border-b border-zinc-800 pb-3">
                 <h3 class="font-bold text-sm text-red-400">🛒 ร้านค้าเพิ่ม Followers_u</h3>
                 <button onclick="closeStoreModal()" class="text-zinc-400 hover:text-white text-xs">✕</button>
@@ -62,6 +70,16 @@
                 </button>
             </div>
             <button onclick="closeStoreModal()" class="w-full py-2 bg-zinc-800 text-zinc-400 rounded-xl text-xs">ปิด</button>
+        </div>
+    </div>
+
+    <!-- Cute Custom Modal / Popup (ป๊อปอัปน่ารักๆ แทน alert) -->
+    <div id="cuteModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex justify-center items-center z-[100] p-4">
+        <div class="bg-zinc-900 border border-zinc-700 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl animate-pop relative">
+            <div id="modalIcon" class="text-4xl mb-3">✨</div>
+            <h3 id="modalTitle" class="text-sm font-bold text-white mb-1">หัวข้อแจ้งเตือน</h3>
+            <p id="modalDesc" class="text-xs text-zinc-300 mb-5 leading-relaxed">รายละเอียด...</p>
+            <button id="modalBtnOk" onclick="closeCuteModal()" class="w-full py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-xs font-bold transition shadow-lg shadow-red-900/30">ตกลง</button>
         </div>
     </div>
 
@@ -84,6 +102,22 @@
         window.addEventListener('DOMContentLoaded', async () => {
             await initSupabase();
         });
+
+        // ฟังก์ชันแสดงป๊อปอัปน่ารักๆ
+        function showCuteModal(title, desc, icon = '✨', onOk = null) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            document.getElementById('modalIcon').innerText = icon;
+            document.getElementById('modalBtnOk').onclick = () => {
+                closeCuteModal();
+                if(onOk) onOk();
+            };
+            document.getElementById('cuteModal').classList.remove('hidden');
+        }
+
+        function closeCuteModal() {
+            document.getElementById('cuteModal').classList.add('hidden');
+        }
 
         async function init() {
             let { data: userDoc, error } = await supabaseClient.from("users").select("*").eq("user", email).single();
@@ -239,7 +273,8 @@
             const myVideos = allVideos.filter(v => v.creator === email);
             const totalViews = myVideos.reduce((sum, v) => sum + (v.views || 1500), 0);
             await supabaseClient.from("users").update({ lastClaimedViews: totalViews }).eq('user', email);
-            alert("✨ กดรับเงินเข้าธนาคารสำเร็จ!");
+            
+            showCuteModal('สำเร็จ! 🎉', 'กดรับเงินเข้าธนาคารเรียบร้อยแล้วจ้า', '💸');
         };
 
         window.switchView = (v) => { currentView = v; renderContent(); };
@@ -272,9 +307,11 @@
             }
 
             await supabaseClient.from("users").update({ followers_u: currentFollowers }).eq('user', email);
-            alert(`สำเร็จ! ซื้อและเพิ่ม Followers_u จำนวน ${amount} คนเรียบร้อยแล้ว! 🎉`);
-            closeStoreModal();
-            renderContent();
+            
+            showCuteModal('ซื้อสำเร็จ! 🎊', `เพิ่ม Followers_u จำนวน ${amount} คน เรียบร้อยแล้ว!`, '🚀', () => {
+                closeStoreModal();
+                renderContent();
+            });
         };
 
         window.renderContent = () => {
