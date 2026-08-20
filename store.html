@@ -6,7 +6,12 @@
     <title>Store - V-link System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style> body { font-family: 'Prompt', sans-serif; } .scrollbar-hide::-webkit-scrollbar { display: none; }</style>
+    <!-- นำเข้า Supabase JS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style> 
+        body { font-family: 'Prompt', sans-serif; } 
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
 </head>
 <body class="bg-zinc-950 text-white p-4 flex justify-center">
 
@@ -27,23 +32,60 @@
         <div id="storeContent" class="flex-1 overflow-y-auto scrollbar-hide"></div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, increment, arrayUnion } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    <script>
+        // ----------------------------------------------------
+        // 1. ตั้งค่า Supabase (กรอก URL และ Anon Key ของคุณที่นี่)
+        // ----------------------------------------------------
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const db = getFirestore(initializeApp({ projectId: "v-link-5d0c8" }));
         const email = localStorage.getItem('userEmail');
         let userBalance = 0;
         let activeSocialTab = 'S-link';
 
-        // 1. ดึงยอดเงินธนาคาร Real-time
-        onSnapshot(doc(db, "users", email), (snap) => {
-            if(snap.exists()) {
-                userBalance = snap.data().balance || 0;
-                document.getElementById('balanceDisplay').innerText = `💰 ฿${userBalance.toLocaleString()}`;
-            }
-        });
+        function updateBalanceDisplay(amount) {
+            document.getElementById('balanceDisplay').innerText = `💰 ฿${Number(amount).toLocaleString()}`;
+        }
 
+        // 2. ดึงข้อมูลยอดเงิน Real-time จาก Supabase
+        async function initUserData() {
+            if (!email) {
+                console.warn("ไม่พบ userEmail ใน localStorage");
+                return;
+            }
+
+            // ดึงข้อมูลครั้งแรก
+            const { data, error } = await supabase
+                .from('users')
+                .select('balance')
+                .eq('email', email)
+                .single();
+
+            if (data) {
+                userBalance = data.balance || 0;
+                updateBalanceDisplay(userBalance);
+            }
+
+            // ติดตามการเปลี่ยนแปลง Realtime
+            supabase
+                .channel('public:users:store')
+                .on('postgres_changes', { 
+                    event: 'UPDATE', 
+                    schema: 'public', 
+                    table: 'users', 
+                    filter: `email=eq.${email}` 
+                }, (payload) => {
+                    if (payload.new) {
+                        userBalance = payload.new.balance || 0;
+                        updateBalanceDisplay(userBalance);
+                    }
+                })
+                .subscribe();
+        }
+
+        // 3. แสดงผลหน้า ร้านค้า / โซเชียล
         window.renderStore = async (view) => {
             const container = document.getElementById('storeContent');
             
@@ -76,7 +118,7 @@
                                     <p class="text-xs font-bold">${opt.label}</p>
                                     <p class="text-[9px] text-zinc-400">ราคา ฿${opt.price.toLocaleString()}</p>
                                 </div>
-                                <button onclick="buySocial('${activeSocialTab}', ${opt.count}, ${opt.price})" class="bg-red-600 px-4 py-2 rounded-xl text-[10px] font-bold">ซื้อ</button>
+                                <button onclick="buySocial('${activeSocialTab}', ${opt.count}, ${opt.price})" class="bg-red-600 px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-red-700 transition">ซื้อ</button>
                             </div>
                         `;
                     });
@@ -94,40 +136,65 @@
             renderStore('social');
         };
 
+        // 4. ระบบการสั่งซื้อ Followers และตัดเงิน
         window.buySocial = async (target, count, price) => {
-            if (userBalance < price) { 
+            if (!email) {
+                alert("ไม่พบข้อมูลผู้ใช้ กรุณาเข้าสู่ระบบใหม่อีกครั้ง");
+                return;
+            }
+
+            // ดึงข้อมูลผู้ใช้ล่าสุดเพื่อป้องกันปัญหา Race Condition
+            const { data: user, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('email', email)
+                .single();
+
+            if (fetchError || !user) {
+                alert("เกิดข้อผิดพลาดในการตรวจสอบข้อมูลผู้ใช้");
+                return;
+            }
+
+            if (user.balance < price) { 
                 alert("ยอดเงินในบัญชีธนาคารไม่พอครับ!"); 
                 return; 
             }
             
             try {
-                // 1. ตัดเงินจากธนาคาร
-                await updateDoc(doc(db, "users", email), { 
-                    balance: increment(-price) 
-                });
-                
-                // 2. กำหนด Field จัดเก็บแยกตามแพลตฟอร์ม
+                // กำหนดคอลัมน์ที่จะเก็บตามแพลตฟอร์ม
                 let fieldName = (target === 'X-link') ? 'followers_x' : 'followers';
 
+                // สร้างรายการ Followers จำลอง
                 let fakeFollowers = [];
                 const timestamp = Date.now();
                 for(let i = 1; i <= count; i++) {
                     fakeFollowers.push(`${target.toLowerCase()}_follower_${timestamp}_${i}@store.system`);
                 }
 
-                // 3. เพิ่มรายการ followers ลงใน Firebase
-                let updateData = {};
-                updateData[fieldName] = arrayUnion(...fakeFollowers);
-                await updateDoc(doc(db, "users", email), updateData);
-                
+                // ดึงรายการ followers เดิมมาต่อเข้าด้วยกัน (ถ้ามี)
+                const existingFollowers = Array.isArray(user[fieldName]) ? user[fieldName] : [];
+                const updatedFollowers = [...existingFollowers, ...fakeFollowers];
+
+                // อัปเดตข้อมูลยอดเงินและ Followers ใหม่ลงใน Supabase
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({ 
+                        balance: user.balance - price,
+                        [fieldName]: updatedFollowers
+                    })
+                    .eq('email', email);
+
+                if (updateError) throw updateError;
+
                 alert(`ซื้อ ${count} Followers สำหรับ ${target} สำเร็จ!`);
             } catch (error) {
-                console.error(error);
+                console.error("Buy Error:", error);
                 alert("เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่อีกครั้ง");
             }
         };
 
-        // เริ่มต้นเปิดหน้า Social Shop
+        // เริ่มต้นทำงาน
+        initUserData();
         renderStore('social');
     </script>
 </body>
