@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store - V-link System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Prompt', sans-serif; } .scrollbar-hide::-webkit-scrollbar { display: none; }</style>
+</head>
+<body class="bg-zinc-950 text-white p-4 flex justify-center">
+
+    <div class="w-full max-w-md bg-zinc-900 rounded-[2.5rem] p-6 min-h-[750px] shadow-2xl border border-zinc-800 flex flex-col">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-red-500">🛒 STORE</h1>
+            <div id="balanceDisplay" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold text-emerald-400">💰 ฿0</div>
+        </div>
+
+        <!-- Main Tabs -->
+        <div class="grid grid-cols-3 gap-2 mb-6">
+            <button onclick="renderStore('fanclub')" class="py-2 text-[10px] bg-zinc-800 rounded-xl font-bold">🛍️ Shop</button>
+            <button onclick="renderStore('social')" class="py-2 text-[10px] bg-zinc-800 rounded-xl font-bold">👥 Social</button>
+            <button onclick="renderStore('inventory')" class="py-2 text-[10px] bg-zinc-800 rounded-xl font-bold">📦 Inventory</button>
+        </div>
+
+        <div id="storeContent" class="flex-1 overflow-y-auto scrollbar-hide"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const db = getFirestore(initializeApp({ projectId: "v-link-5d0c8" }));
+        const email = localStorage.getItem('userEmail');
+        let userBalance = 0;
+        let activeSocialTab = 'S-link';
+
+        // 1. ดึงยอดเงินธนาคาร Real-time
+        onSnapshot(doc(db, "users", email), (snap) => {
+            if(snap.exists()) {
+                userBalance = snap.data().balance || 0;
+                document.getElementById('balanceDisplay').innerText = `💰 ฿${userBalance.toLocaleString()}`;
+            }
+        });
+
+        window.renderStore = async (view) => {
+            const container = document.getElementById('storeContent');
+            
+            if (view === 'social') {
+                const tabs = ['S-link', 'X-link', 'U-link'];
+                const options = [
+                    { label: 'ซื้อแฟนคลับ 1 คน', count: 1, price: 100 },
+                    { label: 'ซื้อแฟนคลับ 10 คน (1k)', count: 10, price: 1000 },
+                    { label: 'ซื้อแฟนคลับ 100 คน (10k)', count: 100, price: 10000 },
+                    { label: 'ซื้อแฟนคลับ 1,000 คน (100k)', count: 1000, price: 100000 },
+                    { label: 'ซื้อแฟนคลับ 10,000 คน (1M)', count: 10000, price: 1000000 }
+                ];
+
+                container.innerHTML = `
+                    <h2 class="text-sm font-bold mb-4">Social Shop</h2>
+                    <div class="flex gap-2 mb-4">
+                        ${tabs.map(t => `
+                            <button onclick="changeSocialTab('${t}')" class="flex-1 py-1.5 text-[9px] font-bold rounded-xl ${activeSocialTab === t ? 'bg-red-600' : 'bg-zinc-800'}">
+                                ${t}
+                            </button>
+                        `).join('')}
+                    </div>
+                    ${options.map(opt => `
+                        <div class="bg-zinc-800 p-4 rounded-2xl mb-3 flex justify-between items-center border border-zinc-700">
+                            <div>
+                                <p class="text-xs font-bold">${opt.label}</p>
+                                <p class="text-[9px] text-zinc-400">ราคา ฿${opt.price.toLocaleString()}</p>
+                            </div>
+                            <button onclick="buySocial('${activeSocialTab}', ${opt.count}, ${opt.price})" class="bg-red-600 px-4 py-2 rounded-xl text-[10px] font-bold">ซื้อ</button>
+                        </div>
+                    `).join('')}
+                `;
+            } else {
+                container.innerHTML = `<p class="text-zinc-500 text-xs text-center mt-10">อยู่ระหว่างการพัฒนา...</p>`;
+            }
+        };
+
+        window.changeSocialTab = (tab) => {
+            activeSocialTab = tab;
+            renderStore('social');
+        };
+
+        window.buySocial = async (target, count, price) => {
+            if (userBalance < price) { alert("เงินในธนาคารไม่พอครับ!"); return; }
+            
+            // หักเงินจากธนาคาร
+            await updateDoc(doc(db, "users", email), { balance: increment(-price) });
+            
+            // เพิ่มแฟนคลับใน Firebase (ใช้ field: s_fans, x_fans, u_fans)
+            const fieldName = `${target.split('-')[0].toLowerCase()}_fans`;
+            const updateObj = {};
+            updateObj[fieldName] = increment(count);
+            await updateDoc(doc(db, "users", email), updateObj);
+            
+            alert(`ซื้อ ${count} คนสำเร็จ!`);
+        };
+
+        // เริ่มต้น
+        renderStore('social');
+    </script>
+</body>
+</html>
