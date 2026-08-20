@@ -20,27 +20,33 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="bg-zinc-950 text-white p-4 flex justify-center">
+<body class="bg-zinc-950 text-white p-4 flex justify-center min-h-screen items-center">
 
     <div class="w-full max-w-md bg-zinc-900 rounded-[2.5rem] p-6 min-h-[750px] shadow-2xl border border-zinc-800 flex flex-col">
         <!-- Header -->
         <div class="flex justify-between items-center mb-6">
+            <button onclick="window.location.href='home.html'" class="bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-xl text-xs transition text-zinc-300">← หน้าหลัก</button>
             <h1 class="text-xl font-bold text-red-500">🛒 STORE</h1>
-            <div id="balanceDisplay" class="bg-zinc-800 px-4 py-1 rounded-full text-xs font-bold text-emerald-400">💰 ฿0</div>
+            <div id="balanceDisplay" class="bg-zinc-800 px-4 py-1.5 rounded-full text-xs font-bold text-emerald-400">💰 ฿0</div>
         </div>
 
         <!-- Main Tabs -->
         <div class="grid grid-cols-3 gap-2 mb-6">
-            <button onclick="renderStore('fanclub')" class="py-2 text-[10px] bg-zinc-800 rounded-xl font-bold">🛍️ Shop</button>
-            <button onclick="renderStore('social')" class="py-2 text-[10px] bg-zinc-800 rounded-xl font-bold">👥 Social</button>
-            <button onclick="renderStore('inventory')" class="py-2 text-[10px] bg-zinc-800 rounded-xl font-bold">📦 Inventory</button>
+            <button onclick="renderStore('fanclub')" id="btnFanclub" class="py-2.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition">🛍️ Shop</button>
+            <button onclick="renderStore('social')" id="btnSocial" class="py-2.5 text-[10px] bg-red-600 rounded-xl font-bold transition">👥 Social</button>
+            <button onclick="renderStore('inventory')" id="btnInventory" class="py-2.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition">📦 Inventory</button>
         </div>
 
-        <div id="storeContent" class="flex-1 overflow-y-auto scrollbar-hide"></div>
+        <div id="storeContent" class="flex-1 overflow-y-auto scrollbar-hide space-y-3"></div>
     </div>
 
     <script>
         const email = localStorage.getItem('userEmail');
+        if (!email) {
+            alert("กรุณาเข้าสู่ระบบก่อนใช้งาน");
+            window.location.href = 'index.html';
+        }
+
         let userBalance = 0;
         let activeSocialTab = 'S-link';
 
@@ -49,48 +55,57 @@
         }
 
         async function initUserData() {
-            if (!email) return;
+            try {
+                // ดึงยอดเงินเริ่มต้น
+                const { data, error } = await window.supabase
+                    .from('users')
+                    .select('balance')
+                    .eq('email', email)
+                    .single();
 
-            // ดึงยอดเงินเริ่มต้น
-            const { data } = await supabase
-                .from('users')
-                .select('balance')
-                .eq('email', email)
-                .single();
+                if (error) throw error;
 
-            if (data) {
-                userBalance = data.balance || 0;
-                updateBalanceDisplay(userBalance);
-            }
-
-            // Realtime Update ยอดเงิน
-            supabase
-                .channel('users-channel')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `email=eq.${email}` }, 
-                payload => {
-                    userBalance = payload.new.balance;
+                if (data) {
+                    userBalance = data.balance || 0;
                     updateBalanceDisplay(userBalance);
-                })
-                .subscribe();
+                }
+
+                // Realtime Update ยอดเงิน
+                window.supabase
+                    .channel('users-store-channel')
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `email=eq.${email}` }, 
+                    payload => {
+                        userBalance = payload.new.balance;
+                        updateBalanceDisplay(userBalance);
+                    })
+                    .subscribe();
+            } catch (err) {
+                console.error("Error loading user data:", err);
+            }
         }
 
         window.renderStore = async (view) => {
             const container = document.getElementById('storeContent');
             
+            // เปลี่ยนสีปุ่ม Active แท็บหลัก
+            document.getElementById('btnFanclub').className = `py-2.5 text-[10px] rounded-xl font-bold transition ${view === 'fanclub' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`;
+            document.getElementById('btnSocial').className = `py-2.5 text-[10px] rounded-xl font-bold transition ${view === 'social' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`;
+            document.getElementById('btnInventory').className = `py-2.5 text-[10px] rounded-xl font-bold transition ${view === 'inventory' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`;
+
             if (view === 'social') {
                 const tabs = ['S-link', 'X-link', 'U-link'];
                 container.innerHTML = `
-                    <h2 class="text-sm font-bold mb-4">Social Shop</h2>
+                    <h2 class="text-xs font-bold text-zinc-400 mb-2">Social Shop (เพิ่มผู้ติดตาม)</h2>
                     <div class="flex gap-2 mb-4">
                         ${tabs.map(t => `
-                            <button onclick="changeSocialTab('${t}')" class="flex-1 py-1.5 text-[9px] font-bold rounded-xl ${activeSocialTab === t ? 'bg-red-600' : 'bg-zinc-800'}">
+                            <button onclick="changeSocialTab('${t}')" class="flex-1 py-2 text-[10px] font-bold rounded-xl transition ${activeSocialTab === t ? 'bg-red-600 text-white shadow-lg shadow-red-900/40' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
                                 ${t}
                             </button>
                         `).join('')}
                     </div>
                 `;
 
-                if (activeSocialTab === 'S-link' || activeSocialTab === 'X-link') {
+                if (activeSocialTab === 'S-link' || activeSocialTab === 'X-link' || activeSocialTab === 'U-link') {
                     const options = [
                         { count: 1, price: 100 },
                         { count: 10, price: 1000 },
@@ -101,18 +116,20 @@
                     
                     options.forEach(opt => {
                         container.innerHTML += `
-                            <div class="bg-zinc-800 p-4 rounded-2xl mb-3 flex justify-between items-center border border-zinc-700">
+                            <div class="bg-zinc-800/60 border border-zinc-700/60 p-4 rounded-2xl flex justify-between items-center transition hover:border-red-500/50">
                                 <div>
-                                    <p class="text-xs font-bold">ซื้อ Followers ${opt.count.toLocaleString()} คน</p>
-                                    <p class="text-[9px] text-zinc-400">ราคา ฿${opt.price.toLocaleString()}</p>
+                                    <p class="text-xs font-bold text-white">ซื้อ Followers ${opt.count.toLocaleString()} คน</p>
+                                    <p class="text-[10px] text-zinc-400 mt-0.5">ราคา ฿${opt.price.toLocaleString()}</p>
                                 </div>
-                                <button onclick="buySocial('${activeSocialTab}', ${opt.count}, ${opt.price})" class="bg-red-600 px-4 py-2 rounded-xl text-[10px] font-bold">ซื้อ</button>
+                                <button onclick="buySocial('${activeSocialTab}', ${opt.count}, ${opt.price})" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl text-[10px] font-bold transition shadow-md shadow-red-900/30">ซื้อ</button>
                             </div>
                         `;
                     });
                 }
+            } else if (view === 'fanclub') {
+                container.innerHTML = `<p class="text-zinc-500 text-xs text-center py-20">🛍️ ร้านค้าไอเทมและแพ็กเกจกำลังจะมาเร็วๆ นี้...</p>`;
             } else {
-                container.innerHTML = `<p class="text-zinc-500 text-xs text-center mt-10">อยู่ระหว่างการพัฒนา...</p>`;
+                container.innerHTML = `<p class="text-zinc-500 text-xs text-center py-20">📦 ช่องเก็บของของคุณว่างเปล่า</p>`;
             }
         };
 
@@ -122,32 +139,48 @@
         };
 
         window.buySocial = async (target, count, price) => {
-            if (userBalance < price) { alert("ยอดเงินไม่พอครับ!"); return; }
+            if (userBalance < price) { 
+                alert("❌ ยอดเงินในบัญชีของคุณไม่เพียงพอ!"); 
+                return; 
+            }
             
-            try {
-                const fieldName = (target === 'X-link') ? 'followers_x' : 'followers';
-                
-                // ดึงข้อมูลเดิมมาอัปเดต
-                const { data: user } = await supabase.from('users').select(fieldName).eq('email', email).single();
-                const currentList = user[fieldName] || [];
-                const newList = [...currentList, ...Array.from({length: count}, () => `${target}_bot_${Date.now()}`)];
+            if (!confirm(`ยืนยันการซื้อ Followers ${count.toLocaleString()} คน สำหรับ ${target} ในราคา ฿${price.toLocaleString()} ใช่หรือไม่?`)) {
+                return;
+            }
 
-                await supabase.from('users').update({ 
+            try {
+                // กำหนดชื่อคอลัมน์ตามประเภทโซเชียล
+                let fieldName = 'followers';
+                if (target === 'X-link') fieldName = 'followers_x';
+                if (target === 'U-link') fieldName = 'followers_u'; // หรือปรับตามคอลัมน์จริงในฐานข้อมูลของคุณ
+
+                // ดึงข้อมูลเดิมมาอัปเดต
+                const { data: user, error: fetchErr } = await window.supabase.from('users').select(fieldName).eq('email', email).single();
+                if (fetchErr) throw fetchErr;
+
+                const currentList = user[fieldName] || [];
+                const newList = [...currentList, ...Array.from({length: count}, () => `${target}_bot_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`)];
+
+                // อัปเดตยอดเงินและรายการฟอลโลเวอร์
+                const { error: updateErr } = await window.supabase.from('users').update({ 
                     balance: userBalance - price,
                     [fieldName]: newList
                 }).eq('email', email);
+
+                if (updateErr) throw updateErr;
                 
-                alert(`ซื้อ ${count} Followers สำหรับ ${target} สำเร็จ!`);
+                alert(`🎉 ซื้อ ${count.toLocaleString()} Followers สำหรับ ${target} สำเร็จ!`);
             } catch (e) {
-                alert("เกิดข้อผิดพลาด");
+                console.error("Transaction error:", e);
+                alert("❌ เกิดข้อผิดพลาดในการทำรายการ กรุณาลองใหม่อีกครั้ง");
             }
         };
 
-        // เริ่มต้น
-        setTimeout(() => {
+        // เริ่มต้นการทำงาน
+        window.onload = () => {
             initUserData();
             renderStore('social');
-        }, 500);
+        };
     </script>
 </body>
 </html>
