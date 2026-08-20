@@ -97,9 +97,9 @@
         </div>
     </div>
 
-    <!-- ป๊อปอัพน่ารักๆ แจ้งเตือนบันทึกสำเร็จ -->
+    <!-- ป๊อปอัพแจ้งเตือนบันทึกสำเร็จ -->
     <div id="cutePopup" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex justify-center items-center p-4 z-50">
-        <div class="w-full max-w-xs bg-gradient-to-b from-amber-500/20 via-slate-900 to-slate-900 border border-amber-400/50 rounded-[2rem] p-6 text-center space-y-4 shadow-2xl transform scale-95 transition-all">
+        <div class="w-full max-w-xs bg-gradient-to-b from-amber-500/20 via-slate-900 to-slate-900 border border-amber-400/50 rounded-[2rem] p-6 text-center space-y-4 shadow-2xl">
             <div class="w-16 h-16 bg-amber-500/20 border border-amber-400/40 rounded-full flex items-center justify-center mx-auto text-3xl shadow-inner animate-bounce">
                 ✨
             </div>
@@ -159,16 +159,9 @@
         </div>
     </div>
 
+    <!-- Supabase Logic -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, runTransaction, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCskpROK3OC55EXjDP-ywMiuaOen-fwr2Y",
-            projectId: "v-link-5d0c8"
-        };
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        import { supabase } from './supabase-config.js';
 
         const email = localStorage.getItem('userEmail');
         if (!email) {
@@ -176,7 +169,6 @@
             window.location.href = 'index.html';
         }
 
-        const userRef = doc(db, "users", email);
         let myAccountData = {};
 
         window.openModal = function() {
@@ -216,6 +208,77 @@
             }
         }
 
+        async function initAccount() {
+            let { data: d, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', email)
+                .single();
+
+            if (!d) {
+                const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
+                const initialData = {
+                    id: email,
+                    userId: newUserId,
+                    accountNumber: newAcc,
+                    balance: 0,
+                    email: email,
+                    name: email.split('@')[0],
+                    user: '@' + email.split('@')[0],
+                    contacts: []
+                };
+                await supabase.from('users').insert([initialData]);
+                myAccountData = initialData;
+            } else {
+                let updates = {};
+                if (!d.accountNumber) updates.accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
+                if (!d.userId) updates.userId = Math.floor(100000 + Math.random() * 900000).toString();
+                if (Object.keys(updates).length > 0) {
+                    await supabase.from('users').update(updates).eq('id', email);
+                    Object.assign(d, updates);
+                }
+                myAccountData = d;
+            }
+
+            document.getElementById('displayName').innerText = `เจ้าของบัญชี: ${email.split('@')[0]}`;
+            document.getElementById('myAccount').innerText = myAccountData.accountNumber || "----------";
+            document.getElementById('myBalance').innerText = (myAccountData.balance || 0).toLocaleString() + ' ฿';
+        }
+
+        async function loadContacts() {
+            const { data: d } = await supabase
+                .from('users')
+                .select('contacts')
+                .eq('id', email)
+                .single();
+
+            const listEl = document.getElementById('contactList');
+            const contacts = d?.contacts || [];
+
+            if (contacts.length === 0) {
+                listEl.innerHTML = `<p class="text-[11px] text-slate-400 text-center py-6">ยังไม่มีรายชื่อที่บันทึกไว้</p>`;
+                return;
+            }
+
+            listEl.innerHTML = contacts.map(c => `
+                <div onclick="selectContact('${c.acc}')" class="bg-slate-900 hover:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/60 flex justify-between items-center cursor-pointer transition group">
+                    <div class="pr-2">
+                        <p class="text-xs font-bold text-white group-hover:text-amber-400 transition">${c.name}</p>
+                        <p class="text-[10px] text-slate-400 font-mono tracking-wider">${c.acc}</p>
+                    </div>
+                    <button onclick="deleteContact(event, '${c.name}', '${c.acc}')" class="w-7 h-7 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-full flex items-center justify-center text-xs transition border border-slate-700" title="ลบรายชื่อ">
+                        ✕
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        window.selectContact = function(acc) {
+            document.getElementById('targetAcc').value = acc;
+            switchTab('transfer');
+        }
+
         window.saveContact = async function() {
             const name = document.getElementById('modalName').value.trim();
             const acc = document.getElementById('modalAcc').value.trim();
@@ -224,9 +287,15 @@
             if (!acc || acc.length !== 10) return alert("กรุณากรอกเลขบัญชี 10 หลักให้ถูกต้อง");
 
             try {
-                await updateDoc(userRef, {
-                    contacts: arrayUnion({ name, acc })
-                });
+                const { data: currentData } = await supabase.from('users').select('contacts').eq('id', email).single();
+                let currentContacts = currentData?.contacts || [];
+                
+                // ป้องกันชื่อหรือเลขซ้ำ
+                currentContacts.push({ name, acc });
+
+                const { error } = await supabase.from('users').update({ contacts: currentContacts }).eq('id', email);
+                if (error) throw error;
+
                 closeModal();
                 document.getElementById('cutePopup').classList.remove('hidden');
                 loadContacts();
@@ -237,79 +306,23 @@
         }
 
         window.deleteContact = async function(event, name, acc) {
-            event.stopPropagation(); // ป้องกันไม่ให้กดโดนการ์ดแล้วเด้งไปหน้าโอน
+            event.stopPropagation();
             if (!confirm(`คุณต้องการลบรายชื่อ "${name}" ออกจากสมุดรายชื่อใช่หรือไม่?`)) return;
 
             try {
-                await updateDoc(userRef, {
-                    contacts: arrayRemove({ name, acc })
-                });
+                const { data: currentData } = await supabase.from('users').select('contacts').eq('id', email).single();
+                let currentContacts = currentData?.contacts || [];
+                
+                currentContacts = currentContacts.filter(c => !(c.name === name && c.acc === acc));
+
+                const { error } = await supabase.from('users').update({ contacts: currentContacts }).eq('id', email);
+                if (error) throw error;
+
                 loadContacts();
             } catch (error) {
                 console.error(error);
                 alert("❌ เกิดข้อผิดพลาดในการลบรายชื่อ");
             }
-        }
-
-        async function initAccount() {
-            const snap = await getDoc(userRef);
-            if (!snap.exists()) {
-                const newAcc = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-                const newUserId = Math.floor(100000 + Math.random() * 900000).toString();
-                await setDoc(userRef, { 
-                    userId: newUserId,
-                    accountNumber: newAcc, 
-                    balance: 0, 
-                    email: email, 
-                    contacts: [] 
-                });
-            } else {
-                const d = snap.data();
-                let updates = {};
-                if (!d.accountNumber) updates.accountNumber = Math.floor(1000000000 + Math.random() * 9000000000).toString();
-                if (!d.userId) updates.userId = Math.floor(100000 + Math.random() * 900000).toString();
-                if (Object.keys(updates).length > 0) {
-                    await updateDoc(userRef, updates);
-                }
-            }
-
-            onSnapshot(userRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    myAccountData = docSnap.data();
-                    const shortName = email.split('@')[0];
-                    document.getElementById('displayName').innerText = `เจ้าของบัญชี: ${shortName}`;
-                    document.getElementById('myAccount').innerText = myAccountData.accountNumber || "----------";
-                    document.getElementById('myBalance').innerText = (myAccountData.balance || 0).toLocaleString() + ' ฿';
-                }
-            });
-        }
-
-        async function loadContacts() {
-            const snap = await getDoc(userRef);
-            const listEl = document.getElementById('contactList');
-            if (snap.exists()) {
-                const contacts = snap.data().contacts || [];
-                if (contacts.length === 0) {
-                    listEl.innerHTML = `<p class="text-[11px] text-slate-400 text-center py-6">ยังไม่มีรายชื่อที่บันทึกไว้</p>`;
-                    return;
-                }
-                listEl.innerHTML = contacts.map(c => `
-                    <div onclick="selectContact('${c.acc}')" class="bg-slate-900 hover:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-700/60 flex justify-between items-center cursor-pointer transition group">
-                        <div class="pr-2">
-                            <p class="text-xs font-bold text-white group-hover:text-amber-400 transition">${c.name}</p>
-                            <p class="text-[10px] text-slate-400 font-mono tracking-wider">${c.acc}</p>
-                        </div>
-                        <button onclick="deleteContact(event, '${c.name}', '${c.acc}')" class="w-7 h-7 bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-full flex items-center justify-center text-xs transition border border-slate-700" title="ลบรายชื่อ">
-                            ✕
-                        </button>
-                    </div>
-                `).join('');
-            }
-        }
-
-        window.selectContact = function(acc) {
-            document.getElementById('targetAcc').value = acc;
-            switchTab('transfer');
         }
 
         window.executeTransfer = async () => {
@@ -324,32 +337,56 @@
             btn.innerText = "กำลังดำเนินการ...";
 
             try {
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("accountNumber", "==", targetAcc));
-                const querySnapshot = await getDocs(q);
+                // 1. ค้นหาบัญชีปลายทาง
+                const { data: targetUsers, error: targetError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('accountNumber', targetAcc);
 
-                if (querySnapshot.empty) {
+                if (targetError || !targetUsers || targetUsers.length === 0) {
                     throw new Error("ไม่พบเลขบัญชีปลายทางนี้ในระบบ");
                 }
 
-                const targetDocRef = querySnapshot.docs[0].ref;
-                const targetEmail = querySnapshot.docs[0].id;
-
-                if (targetEmail === email) {
+                const targetUser = targetUsers[0];
+                if (targetUser.id === email) {
                     throw new Error("ไม่สามารถโอนเงินให้บัญชีตัวเองได้");
                 }
 
-                await runTransaction(db, async (transaction) => {
-                    const senderDoc = await transaction.get(userRef);
-                    const receiverDoc = await transaction.get(targetDocRef);
+                // 2. ดึงข้อมูลผู้ส่งล่าสุดเพื่อเช็คยอดเงิน
+                const { data: senderUser } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', email)
+                    .single();
 
-                    const senderBalance = senderDoc.data().balance || 0;
-                    if (senderBalance < amount) throw new Error("ยอดเงินในบัญชีของคุณไม่เพียงพอ");
+                const senderBalance = senderUser.balance || 0;
+                if (senderBalance < amount) {
+                    throw new Error("ยอดเงินในบัญชีของคุณไม่เพียงพอ");
+                }
 
-                    transaction.update(userRef, { balance: senderBalance - amount });
-                    transaction.update(targetDocRef, { balance: (receiverDoc.data().balance || 0) + amount });
-                });
+                // 3. ทำการหักเงินผู้ส่ง และเพิ่มเงินผู้รับ
+                const newSenderBalance = senderBalance - amount;
+                const newTargetBalance = (targetUser.balance || 0) + amount;
 
+                const { error: updateSenderErr } = await supabase
+                    .from('users')
+                    .update({ balance: newSenderBalance })
+                    .eq('id', email);
+
+                if (updateSenderErr) throw updateSenderErr;
+
+                const { error: updateTargetErr } = await supabase
+                    .from('users')
+                    .update({ balance: newTargetBalance })
+                    .eq('accountNumber', targetAcc);
+
+                if (updateTargetErr) throw updateTargetErr;
+
+                // อัปเดต UI ยอดเงินหน้าจอทันที
+                myAccountData.balance = newSenderBalance;
+                document.getElementById('myBalance').innerText = newSenderBalance.toLocaleString() + ' ฿';
+
+                // แสดงสลิป
                 const now = new Date();
                 const day = String(now.getDate()).padStart(2, '0');
                 const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -360,7 +397,7 @@
                 document.getElementById('receiptTime').innerText = formattedDateTime;
                 document.getElementById('receiptSenderName').innerText = email.split('@')[0];
                 document.getElementById('receiptSenderAcc').innerText = myAccountData.accountNumber;
-                document.getElementById('receiptReceiverName').innerText = targetEmail.split('@')[0];
+                document.getElementById('receiptReceiverName').innerText = targetUser.email.split('@')[0];
                 document.getElementById('receiptReceiverAcc').innerText = targetAcc;
                 document.getElementById('receiptAmount').innerText = `-${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} THB`;
 
