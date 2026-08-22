@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store - V-link System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- นำเข้า Supabase JS SDK -->
+    <script type="module">
+        import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+        
+        const SUPABASE_URL = 'https://pjapezytmawescgcbyxd.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_bAQw8ZRxU7djRR3w11vsfQ__ig0uUuX';
+        
+        window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    </script>
+    <style> 
+        body { font-family: 'Prompt', sans-serif; } 
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        @keyframes popUp {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop { animation: popUp 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white p-4 flex justify-center min-h-screen items-center">
+
+    <div class="w-full max-w-md bg-zinc-900 rounded-[2.5rem] p-6 min-h-[750px] shadow-2xl border border-zinc-800 flex flex-col relative overflow-hidden">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-red-500">🛒 STORE</h1>
+            <div id="balanceDisplay" class="bg-zinc-800 px-4 py-1.5 rounded-full text-xs font-bold text-emerald-400">💰 ฿0</div>
+        </div>
+
+        <!-- Main Tabs (3 แท็บเหมือนเดิม) -->
+        <div class="grid grid-cols-3 gap-2 mb-6">
+            <button onclick="renderStore('fanclub')" id="btnFanclub" class="py-2.5 text-[10px] bg-red-600 rounded-xl font-bold transition">🛍️ Shop</button>
+            <button onclick="renderStore('social')" id="btnSocial" class="py-2.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition">👥 Social</button>
+            <button onclick="renderStore('inventory')" id="btnInventory" class="py-2.5 text-[10px] bg-zinc-800 hover:bg-zinc-700 rounded-xl font-bold transition">📦 Inventory</button>
+        </div>
+
+        <div id="storeContent" class="flex-1 overflow-y-auto scrollbar-hide space-y-3"></div>
+    </div>
+
+    <!-- Cute Custom Modal / Popup -->
+    <div id="cuteModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4">
+        <div class="bg-zinc-900 border border-zinc-700 w-full max-w-xs rounded-[2rem] p-6 text-center shadow-2xl animate-pop relative">
+            <div id="modalIcon" class="text-4xl mb-3">✨</div>
+            <h3 id="modalTitle" class="text-sm font-bold text-white mb-1">หัวข้อแจ้งเตือน</h3>
+            <p id="modalDesc" class="text-xs text-zinc-300 mb-5 leading-relaxed">รายละเอียดข้อความแจ้งเตือนตรงนี้...</p>
+            <div id="modalActions" class="flex gap-2">
+                <button id="modalBtnOk" onclick="closeCuteModal()" class="w-full py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-xs font-bold transition shadow-lg shadow-red-900/30">ตกลง</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const email = localStorage.getItem('userEmail');
+        if (!email) {
+            showCuteModal('⚠️ แจ้งเตือน', 'กรุณาเข้าสู่ระบบก่อนใช้งาน', '🔒', () => { window.location.href = 'index.html'; });
+        }
+
+        let userBalance = 0;
+        let activeSocialTab = 'S-link';
+        let userInventory = [];
+
+        function showCuteModal(title, desc, icon = '✨', onOk = null, cancelBtn = false, onCancel = null) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            document.getElementById('modalIcon').innerText = icon;
+            
+            const actionsEl = document.getElementById('modalActions');
+            if (cancelBtn) {
+                actionsEl.innerHTML = `
+                    <button id="modalBtnCancel" class="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-bold transition text-zinc-300">ยกเลิก</button>
+                    <button id="modalBtnOk" class="flex-1 py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-xs font-bold transition shadow-lg shadow-red-900/30">ยืนยัน</button>
+                `;
+                document.getElementById('modalBtnCancel').onclick = () => {
+                    closeCuteModal();
+                    if(onCancel) onCancel();
+                };
+            } else {
+                actionsEl.innerHTML = `<button id="modalBtnOk" class="w-full py-2.5 bg-red-600 hover:bg-red-500 rounded-xl text-xs font-bold transition shadow-lg shadow-red-900/30">ตกลง</button>`;
+            }
+
+            document.getElementById('modalBtnOk').onclick = () => {
+                closeCuteModal();
+                if(onOk) onOk();
+            };
+
+            document.getElementById('cuteModal').classList.remove('hidden');
+        }
+
+        function closeCuteModal() {
+            document.getElementById('cuteModal').classList.add('hidden');
+        }
+
+        function updateBalanceDisplay(amount) {
+            document.getElementById('balanceDisplay').innerText = `💰 ฿${Number(amount).toLocaleString()}`;
+        }
+
+        async function initUserData() {
+            try {
+                const { data, error } = await window.supabase
+                    .from('users')
+                    .select('balance, inventory')
+                    .eq('email', email)
+                    .single();
+
+                if (error) throw error;
+
+                if (data) {
+                    userBalance = data.balance || 0;
+                    userInventory = Array.isArray(data.inventory) ? data.inventory : [];
+                    updateBalanceDisplay(userBalance);
+                }
+
+                window.supabase
+                    .channel('users-store-channel')
+                    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users', filter: `email=eq.${email}` }, 
+                    payload => {
+                        if(payload.new.balance !== undefined) {
+                            userBalance = payload.new.balance;
+                            updateBalanceDisplay(userBalance);
+                        }
+                        if(payload.new.inventory !== undefined) {
+                            userInventory = Array.isArray(payload.new.inventory) ? payload.new.inventory : [];
+                        }
+                    })
+                    .subscribe();
+            } catch (err) {
+                console.error("Error loading user data:", err);
+            }
+        }
+
+        window.renderStore = async (view) => {
+            const container = document.getElementById('storeContent');
+            
+            document.getElementById('btnFanclub').className = `py-2.5 text-[10px] rounded-xl font-bold transition ${view === 'fanclub' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`;
+            document.getElementById('btnSocial').className = `py-2.5 text-[10px] rounded-xl font-bold transition ${view === 'social' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`;
+            document.getElementById('btnInventory').className = `py-2.5 text-[10px] rounded-xl font-bold transition ${view === 'inventory' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}`;
+
+            if (view === 'fanclub') {
+                container.innerHTML = `
+                    <h2 class="text-xs font-bold text-zinc-400 mb-2">Fan Club Shop (ซื้อไอเทมสะสม)</h2>
+                    <div class="flex flex-col items-center justify-center py-24 text-center">
+                        <span class="text-3xl mb-2">🛍️</span>
+                        <p class="text-zinc-400 text-xs font-bold">ยังไม่มีสินค้าในหมวดหมู่นี้</p>
+                        <p class="text-zinc-500 text-[10px] mt-1">โปรดติดตามสินค้าไอเทมใหม่ๆ เร็วๆ นี้จ้า!</p>
+                    </div>
+                `;
+            } else if (view === 'social') {
+                const tabs = ['S-link', 'X-link', 'U-link'];
+                container.innerHTML = `
+                    <h2 class="text-xs font-bold text-zinc-400 mb-2">Social Shop (เพิ่มผู้ติดตาม)</h2>
+                    <div class="flex gap-2 mb-4">
+                        ${tabs.map(t => `
+                            <button onclick="changeSocialTab('${t}')" class="flex-1 py-2 text-[10px] font-bold rounded-xl transition ${activeSocialTab === t ? 'bg-red-600 text-white shadow-lg shadow-red-900/40' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
+                                ${t}
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+
+                const options = [
+                    { count: 1, price: 100 },
+                    { count: 10, price: 1000 },
+                    { count: 100, price: 10000 },
+                    { count: 1000, price: 100000 },
+                    { count: 10000, price: 1000000 }
+                ];
+                
+                options.forEach(opt => {
+                    container.innerHTML += `
+                        <div class="bg-zinc-800/60 border border-zinc-700/60 p-4 rounded-2xl flex justify-between items-center transition hover:border-red-500/50">
+                            <div>
+                                <p class="text-xs font-bold text-white">ซื้อ Followers ${opt.count.toLocaleString()} คน</p>
+                                <p class="text-[10px] text-zinc-400 mt-0.5">ราคา ฿${opt.price.toLocaleString()}</p>
+                            </div>
+                            <button onclick="buySocial('${activeSocialTab}', ${opt.count}, ${opt.price})" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-xl text-[10px] font-bold transition shadow-md shadow-red-900/30">ซื้อ</button>
+                        </div>
+                    `;
+                });
+            } else {
+                container.innerHTML = `<h2 class="text-xs font-bold text-zinc-400 mb-2">📦 คลังไอเทมของคุณ (Inventory)</h2>`;
+                
+                if (!userInventory || userInventory.length === 0) {
+                    container.innerHTML += `<p class="text-zinc-500 text-xs text-center py-20">ช่องเก็บของของคุณยังว่างเปล่า ไปช้อปไอเทมเพิ่มผู้ติดตามได้ที่แท็บ Social Shop เลย!</p>`;
+                } else {
+                    userInventory.forEach((inv) => {
+                        container.innerHTML += `
+                            <div class="bg-zinc-800/80 border border-zinc-700 p-3.5 rounded-2xl flex justify-between items-center">
+                                <div>
+                                    <p class="text-xs font-bold text-white">🎁 ${inv.name}</p>
+                                    <p class="text-[9px] text-zinc-400 mt-0.5">ซื้อเมื่อ: ${new Date(inv.time).toLocaleString('th-TH')}</p>
+                                </div>
+                                <span class="text-[9px] bg-red-500/10 text-red-400 border border-red-500/20 px-2.5 py-1 rounded-full font-bold">ครอบครองแล้ว</span>
+                            </div>
+                        `;
+                    });
+                }
+            }
+        };
+
+        window.changeSocialTab = (tab) => {
+            activeSocialTab = tab;
+            renderStore('social');
+        };
+
+        window.buySocial = async (target, count, price) => {
+            if (userBalance < price) { 
+                showCuteModal('เงินในกระเป๋าไม่พอหรอกนะ! 💸', `ต้องการซื้อ Followers สำหรับ ${target} จำนวน ${count.toLocaleString()} คน ต้องใช้เงิน ฿${price.toLocaleString()} จ้า`, '🥺');
+                return; 
+            }
+            
+            showCuteModal('ยืนยันการซื้อฟอลโลเวอร์ 👥', `ต้องการซื้อ Followers ${count.toLocaleString()} คน สำหรับ ${target} ในราคา ฿${price.toLocaleString()} ใช่หรือไม่?`, '❓', async () => {
+                try {
+                    // หักเงินและอัปเดตหน้าจอแบบ Real-time ทันที
+                    userBalance -= price;
+                    updateBalanceDisplay(userBalance);
+
+                    let updateData = { balance: userBalance };
+
+                    if (target === 'U-link') {
+                        const { data: userDoc, error: fetchErr } = await window.supabase.from('users').select('followers_u').eq('email', email).single();
+                        if (fetchErr) throw fetchErr;
+
+                        let currentFollowers = Array.isArray(userDoc.followers_u) ? userDoc.followers_u : [];
+                        const botStoreNames = [
+                            { name: "บอทซิ่ง", user: "@bot_sing" }, 
+                            { name: "แฟนคลับตัวยง", user: "@fan_pro" }, 
+                            { name: "สายเปย์", user: "@pay_heavy" }, 
+                            { name: "คนดูเงียบๆ", user: "@silent_viewer" }
+                        ];
+
+                        for (let i = 0; i < count; i++) {
+                            const randomBot = botStoreNames[Math.floor(Math.random() * botStoreNames.length)];
+                            currentFollowers.push({ 
+                                name: randomBot.name + "_" + Math.floor(Math.random()*1000), 
+                                user: randomBot.user, 
+                                time: new Date().toISOString() 
+                            });
+                        }
+                        updateData.followers_u = currentFollowers;
+
+                    } else if (target === 'X-link') {
+                        const { data: userDoc, error: fetchErr } = await window.supabase.from('users').select('followers_x').eq('email', email).single();
+                        if (fetchErr) throw fetchErr;
+
+                        let currentFollowers = Array.isArray(userDoc.followers_x) ? userDoc.followers_x : [];
+                        const xBotNames = [
+                            { name: "X_User", handle: "@x_fan1" },
+                            { name: "Retweet_King", handle: "@rt_king" },
+                            { name: "Cyber_X", handle: "@cyber_x" }
+                        ];
+
+                        for (let i = 0; i < count; i++) {
+                            const randomBot = xBotNames[Math.floor(Math.random() * xBotNames.length)];
+                            currentFollowers.push({ 
+                                name: randomBot.name + "_" + Math.floor(Math.random()*1000), 
+                                handle: randomBot.handle, 
+                                time: new Date().toISOString() 
+                            });
+                        }
+                        updateData.followers_x = currentFollowers;
+
+                    } else if (target === 'S-link') {
+                        const { data: userDoc, error: fetchErr } = await window.supabase.from('users').select('followers').eq('email', email).single();
+                        if (fetchErr) throw fetchErr;
+                        
+                        let currentList = Array.isArray(userDoc.followers) ? userDoc.followers : [];
+                        for (let i = 0; i < count; i++) {
+                            currentList.push(`S-link_bot_${Date.now()}_${Math.floor(Math.random()*1000)}`);
+                        }
+                        updateData.followers = currentList;
+                    }
+
+                    const { error: updateErr } = await window.supabase.from('users').update(updateData).eq('email', email);
+
+                    if (updateErr) throw updateErr;
+                    
+                    showCuteModal('สำเร็จเรียบร้อย! 🎉', `ซื้อ Followers สำหรับ ${target} สำเร็จแล้ว ยอดถูกส่งไปที่หน้าแอปของคุณทันทีเลย!`, '🚀');
+                } catch (e) {
+                    console.error("Transaction error:", e);
+                    // คืนเงินหากเกิดข้อผิดพลาด
+                    userBalance += price;
+                    updateBalanceDisplay(userBalance);
+                    showCuteModal('เกิดข้อผิดพลาด ❌', 'ทำรายการไม่สำเร็จ กรุณาลองใหม่อีกครั้งนะจ๊ะ', '⚠️');
+                }
+            }, true);
+        };
+
+        window.onload = () => {
+            initUserData();
+            renderStore('fanclub'); // เปิดมาหน้า Shop (ที่ตอนนี้เคลียร์สินค้าออกแล้ว)
+        };
+    </script>
+</body>
+</html>
